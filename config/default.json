@@ -1,0 +1,7 @@
+{
+    "debug": true,
+    "api_path": "http://localhost:8082",
+    "db_path": "mongodb://localhost:27017",
+    "databases": ["channels"],
+    "app_name": "Bakery"
+}

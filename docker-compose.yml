@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  # oven:
+  #   image: drannoc/bakery
+  #   ports:
+  #     - "80802:8082"
+  #   volumes:
+  #     - ./output:/app/output
+  mongo:
+    image: drannoc/mongosail
+    environment:
+      - MONGO_DATA_DIR=/data/db
+      - MONGO_LOG_DIR=/data/logs
+    volumes:
+      - ./db/logs/:/data/logs/
+      - ./db/data/:/data/db
+    ports:
+      - 27017:27017
