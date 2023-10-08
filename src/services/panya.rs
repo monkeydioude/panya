@@ -1,16 +1,17 @@
-use crate::{db::{channels::Channels, model::CollectionModel}, utils::now_minus_minutes};
+use crate::{db::{channels::Channels, model::{CollectionModel, SortOrder, BlankCollection}, entities::Timer}, utils::now_minus_minutes};
 use rocket::error;
-
+use mongodb::bson::doc;
 use super::{bakery::PotentialArticle, vec::RemoveExisting};
 
 pub async fn process_data_and_fetch_items(
     channels: &Channels<'_, PotentialArticle>,
     data: &Vec<PotentialArticle>,
+    limit: i64,
 ) -> Vec<PotentialArticle> {
-    let found: Vec<PotentialArticle> = channels.find_by_field_values(data, "link").await;
+    let found: Vec<PotentialArticle> = channels.find_by_field_values(data, "link", limit).await;
     let to_insert = data.remove_existing(&found);
     if to_insert.is_empty() {
-        return vec![];
+        return found.clone();
     }
 
     if let Err(err) = channels.insert_many(&to_insert).await {
@@ -18,15 +19,27 @@ pub async fn process_data_and_fetch_items(
         return vec![];
     }
 
-    data.clone()
+    data
+        .iter()
+        .take(limit as usize)
+        .cloned()
+        .collect()
 }
 
-pub async fn should_fetch_cookies(channels: &Channels<'_, PotentialArticle>) -> bool {
-    channels.find_latests(
-        "create_date", 
-        now_minus_minutes(10), 
+pub async fn should_fetch_cookies(
+    timers: &BlankCollection<'_, Timer>,
+    channel: &str,
+) -> bool {
+    timers.find(
+        doc!{
+            "channel": channel,
+            "update_date": {
+                "$gt": now_minus_minutes(2),
+            },
+        },
+        Some("update_date"), 
         1,
-        None,
+        SortOrder::DESC,
     )
     .await
     .and_then(|v| {

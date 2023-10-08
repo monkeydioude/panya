@@ -1,7 +1,7 @@
-use super::{mongo::Handle, model::{FieldSort, CollectionModel}};
+use super::{mongo::Handle, model::{CollectionModel, CollectionModelConstraint}};
 use crate::error::Error;
 use mongodb::{bson::doc, results::InsertManyResult, Collection, Database, IndexModel};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::Serialize;
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -12,9 +12,7 @@ pub struct Channels<'a, T: Serialize> {
     db_name: &'a str,
 }
 
-impl<'a, T> Channels<'a, T>
-where T: Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned,
-{
+impl<'a, T: CollectionModelConstraint> Channels<'a, T> {
     pub async fn insert_many(&self, data: &[T]) -> Result<InsertManyResult, Error> {
         // Works cause we dont store result, nor do we return it.
         // An Err() is returned, if that's the case.
@@ -45,11 +43,7 @@ where T: Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + Deseriali
 }
 
 
-impl<'a, T> CollectionModel<T> for Channels<'a, T>
-where
-    T: Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned,
-{
-
+impl<'a, T: CollectionModelConstraint> CollectionModel<T> for Channels<'a, T> {
     fn collection(&self) -> &Collection<T> {
         &self.collection
     }

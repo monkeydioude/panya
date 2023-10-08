@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use rss::{ChannelBuilder, Item};
+use url::Url;
 
 use super::bakery::PotentialArticle;
 
@@ -25,16 +26,46 @@ impl From<PotentialArticle> for Item {
     }
 }
 
-pub fn cook(articles: Vec<PotentialArticle>) -> String {
+fn get_schema(link: &str) -> String {
+    match Url::parse(link) {
+        Ok(parts) => parts.scheme().to_string() + "://",
+        Err(err) => {
+            warn!("could not parse url {}: {}", link, err);
+            "http://".to_string()
+        },
+    }
+}
+
+pub fn cook(
+    link: &str,
+    title: &str, 
+    articles: Vec<PotentialArticle>,
+) -> String {
     let mut items = vec![];
-    for v in articles.iter() {
-        items.push(v.clone().into());
+    let schema = get_schema(link);
+    for value in articles.iter() {
+        items.push(Item {
+            title: value.some_desc(),
+            link: Some(schema.to_string() + &value.link),
+            description: value.some_desc(),
+            author: None,
+            categories: vec![],
+            comments: None,
+            enclosure: None,
+            guid: None,
+            pub_date: value.some_human_date(),
+            source: None,
+            content: None,
+            extensions: BTreeMap::new(),
+            itunes_ext: None,
+            dublin_core_ext: None,
+        });
     }
     
     ChannelBuilder::default()
-        .title("test".to_string())
-        .link("test".to_string())
-        .description("lezgong".to_string())
+        .title(title.to_string())
+        .link(link.to_string())
+        .description(title.to_string())
         .items(items)
         .build()
         .to_string()

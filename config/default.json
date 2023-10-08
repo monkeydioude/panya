@@ -2,6 +2,6 @@
     "debug": true,
     "api_path": "http://localhost:8082",
     "db_path": "mongodb://localhost:27017",
-    "databases": ["channels"],
+    "databases": ["channels", "panya"],
     "app_name": "Pan-Ya"
 }

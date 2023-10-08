@@ -8,6 +8,7 @@ pub struct Settings {
     pub api_path: String,
     pub databases: Vec<String>,
     pub db_path: String,
+    pub app_name: String,
 }
 
 // #[derive(Debug, Deserialize)]
