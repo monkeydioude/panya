@@ -1,44 +1,43 @@
-use super::mongo::Handle;
 use crate::error::Error;
 use futures::StreamExt;
-use mongodb::{bson::doc, results::InsertManyResult, Collection, Database, IndexModel};
+use mongodb::{bson::doc, results::InsertManyResult, Collection, Database, options};
+use rocket::tokio;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{fmt::Debug, vec};
 
-#[derive(Debug)]
-pub struct Channels<'a, T: Serialize> {
-    collection: Collection<T>,
-    handle: &'a Handle,
-    url: &'a str,
+#[derive(Copy, Clone)]
+pub enum SortOrder {
+    ASC = 1,
+    DESC = -1,
 }
 
-pub trait FieldSort<V> {
-    fn sort_by_value(&self) -> V;
+impl SortOrder {
+    pub fn value(&self) -> i32 {
+        *self as i32
+    }
 }
 
-impl<'a, T> Channels<'a, T>
-where
-    T: Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned,
+impl From<Option<SortOrder>> for SortOrder {
+    fn from(value: Option<SortOrder>) -> Self {
+        value.unwrap_or(SortOrder::ASC)
+    }
+}
+
+pub trait CollectionModel<T>
+where T: Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned,
 {
-    pub async fn insert_many(&self, data: &[T]) -> Result<InsertManyResult, Error> {
+    async fn insert_many(&self, data: &[T]) -> Result<InsertManyResult, Error> {
         if data.is_empty() {
             return Error::to_result_string("empty input")?;
         }
 
-        // Works cause we dont store result, nor do we return it.
-        // An Err() is returned, if that's the case.
-        self.collection()
-            // Oftenly creating new collectionm therefore index
-            .create_index(IndexModel::builder().keys(doc! {"link": -1}).build(), None)
-            .await?;
-
         self.collection()
             .insert_many(data, None)
             .await
-            .map_err(Error::from)
+            .map_err(Error::from)     
     }
 
-    pub async fn find_by_field(&self, data: &[T], field: &str) -> Vec<T> {
+    async fn find_by_field_values(&self, data: &[T], field: &str) -> Vec<T> {
         let mut in_values = vec![];
 
         for item in data {
@@ -49,7 +48,7 @@ where
             field: { "$in": in_values }
         };
 
-        let mut cursor = match self.collection.find(filter, None).await {
+        let mut cursor = match self.collection().find(filter, None).await {
             Ok(c) => c,
             Err(_) => return vec![],
         };
@@ -61,32 +60,57 @@ where
         results
     }
 
-    pub fn collection(&self) -> &Collection<T> {
-        &self.collection
+    async fn find_latests(
+        &self,
+        field: &str,
+        after: impl Into<Option<i64>>,
+        limit: impl Into<Option<i64>>,
+        sort: impl Into<Option<SortOrder>>,
+    ) -> Option<Vec<T>> {
+        if field.is_empty() {
+            return None
+        }
+
+        let find_options = options::FindOptions::builder()
+            .limit(limit)
+            .sort(doc! {
+                field: sort.into().unwrap_or(SortOrder::ASC).value(),
+            })
+            .build();
+
+        let mut doc = doc! {};
+        let after_into = after.into();
+
+        if !after_into.is_none() {
+            doc = doc! {
+                field: {
+                    "$gt": after_into.unwrap(),
+                },
+            }
+        }
+
+        match self
+            .collection()
+            .find(doc, find_options)
+            .await
+            .ok() {
+                Some(mut cursor) => {
+                    let mut results = vec![];
+                    while let Some(Ok(res)) = cursor.next().await {
+                        results.push(res);
+                    }
+                    Some(results)
+                },
+                None => None,
+            }
     }
 
-    pub fn get_collection_name(&self) -> String {
-        self.url.to_string()
-    }
+    fn collection(&self) -> &Collection<T>;
+    fn get_collection_name(&self) -> String;
+    fn get_database(&self) -> Option<&Database>;
+}
 
-    pub fn get_database(&self) -> Option<&Database> {
-        self.handle.database(&Channels::<T>::get_database_name())
-    }
 
-    pub fn get_database_name() -> String {
-        "channels".to_string()
-    }
-
-    pub fn new(url: &'a str, handle: &'a Handle) -> Result<Self, Error> {
-        let collection = (match handle.database(&Channels::<T>::get_database_name()) {
-            Some(res) => res,
-            None => return Err(Error("no database found".to_string())),
-        })
-        .collection::<T>(url);
-        Ok(Channels {
-            url,
-            handle,
-            collection,
-        })
-    }
+pub trait FieldSort<V> {
+    fn sort_by_value(&self) -> V;
 }

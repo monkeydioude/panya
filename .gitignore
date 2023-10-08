@@ -15,5 +15,5 @@ Cargo.lock
 
 output/
 .DS_Store
-db/
+/db/
 .vscode

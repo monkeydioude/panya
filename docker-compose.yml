@@ -1,12 +1,6 @@
 version: '3'
 
 services:
-  # oven:
-  #   image: drannoc/bakery
-  #   ports:
-  #     - "80802:8082"
-  #   volumes:
-  #     - ./output:/app/output
   mongo:
     image: drannoc/mongosail
     environment:
@@ -17,3 +11,13 @@ services:
       - ./db/data/:/data/db
     ports:
       - 27017:27017
+  oven:
+    image: drannoc/oven
+    ports:
+      - "3031:3031"
+    volumes:
+      - ./output:/app/output
+  bakery:
+    image: drannoc/bakery
+    ports:
+      - "8082:8082"

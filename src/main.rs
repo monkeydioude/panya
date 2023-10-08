@@ -1,12 +1,15 @@
+#![feature(async_fn_in_trait)]
 #[macro_use]
 extern crate rocket;
 
+pub mod config;
 pub mod db;
 pub mod error;
-pub mod services;
 pub mod handlers;
-pub mod config;
+pub mod services;
+pub mod utils;
 
+use handlers::panya::get_url;
 use rocket::{Build, Config, Rocket, Route};
 use std::net::Ipv4Addr;
 
@@ -33,5 +36,5 @@ async fn lezgong(routes: Vec<Route>, port: u16) -> Rocket<Build> {
 
 #[launch]
 async fn launch() -> _ {
-    lezgong(routes![healthcheck], 8082).await
+    lezgong(routes![healthcheck, get_url], 8083).await
 }
