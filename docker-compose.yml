@@ -11,13 +11,22 @@ services:
       - ./db/data/:/data/db
     ports:
       - 27017:27017
+    networks:
+      - panya_net
   oven:
     image: drannoc/oven
     ports:
       - "3031:3031"
     volumes:
       - ./output:/app/output
+    networks:
+      - panya_net
   bakery:
     image: drannoc/bakery
     ports:
       - "8082:8082"
+    networks:
+      - panya_net
+networks:
+  panya_net:
+    external: true

@@ -2,7 +2,19 @@ CARGO_WATCH_IGNORES := $(shell grep -E '^[^\#]| ?\n' .gitignore | sed 's/^/--ign
 
 
 .PHONY: all
-all: setup start
+all: 
+	@$(MAKE) BIN=docker bin-exists
+	@docker network create panya_net || echo "Network 'panya_net' already exists. Skipping."
+	@docker compose up -d
+	@docker build -t panya .
+	@$(MAKE) run-container
+
+.PHONY: run-container
+run-container:
+	docker run -p 8083:8083 --network panya_net --name panya-api --rm panya
+
+.PHONY: dev
+dev: setup start
 
 .PHONY: start
 start:

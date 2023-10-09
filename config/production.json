@@ -1,4 +1,4 @@
 {
     "debug": false,
-    "api_path": "https://4thehoard.com"
+    "api_path": "http://localhost:8082"
 }
