@@ -1,4 +1,4 @@
-FROM rustlang/rust:nightly-slim as builder
+FROM rustlang/rust:nightly-bullseye-slim as builder
 WORKDIR /usr/src/app
 RUN apt-get update && apt-get -y install pkg-config libssl-dev
 COPY src ./src/

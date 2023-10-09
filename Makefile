@@ -1,6 +1,5 @@
 CARGO_WATCH_IGNORES := $(shell grep -E '^[^\#]| ?\n' .gitignore | sed 's/^/--ignore /')
 
-
 .PHONY: all
 all: 
 	@$(MAKE) BIN=docker bin-exists
