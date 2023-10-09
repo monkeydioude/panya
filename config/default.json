@@ -1,6 +1,6 @@
 {
     "debug": true,
-    "api_path": "http://localhost:8082",
+    "api_path": "http://localhost:8084",
     "db_path": "mongodb://localhost:27017",
     "databases": ["channels", "panya"],
     "app_name": "Pan-Ya",
