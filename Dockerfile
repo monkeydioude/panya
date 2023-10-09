@@ -8,7 +8,6 @@ RUN cargo build
 
 FROM debian:bullseye
 WORKDIR /usr/local/bin
-RUN apt-get update && apt-get -y install libssl-dev
 COPY --from=builder /usr/src/app/config/ /usr/local/bin/config
 COPY --from=builder /usr/src/app/target/debug/panya /usr/local/bin/app
 CMD ["app"]
