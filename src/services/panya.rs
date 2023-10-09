@@ -1,7 +1,14 @@
-use crate::{db::{channels::Channels, model::{CollectionModel, SortOrder, BlankCollection}, entities::Timer}, utils::now_minus_minutes};
-use rocket::error;
-use mongodb::bson::doc;
 use super::{bakery::PotentialArticle, vec::RemoveExisting};
+use crate::{
+    db::{
+        channels::Channels,
+        entities::Timer,
+        model::{BlankCollection, CollectionModel, SortOrder},
+    },
+    utils::now_minus_minutes,
+};
+use mongodb::bson::doc;
+use rocket::error;
 
 pub async fn process_data_and_fetch_items(
     channels: &Channels<'_, PotentialArticle>,
@@ -19,34 +26,32 @@ pub async fn process_data_and_fetch_items(
         return vec![];
     }
 
-    data
-        .iter()
-        .take(limit as usize)
-        .cloned()
-        .collect()
+    data.iter().take(limit as usize).cloned().collect()
 }
 
 pub async fn should_fetch_cookies(
     timers: &BlankCollection<'_, Timer>,
     channel: &str,
+    cooldown: i64,
 ) -> bool {
-    timers.find(
-        doc!{
-            "channel": channel,
-            "update_date": {
-                "$gt": now_minus_minutes(2),
+    timers
+        .find(
+            doc! {
+                "channel": channel,
+                "update_date": {
+                    "$gt": now_minus_minutes(cooldown),
+                },
             },
-        },
-        Some("update_date"), 
-        1,
-        SortOrder::DESC,
-    )
-    .await
-    .and_then(|v| {
-        if v.is_empty() {
-            return None            
-        }
-        Some(())
-    })
-    .is_none()
+            Some("update_date"),
+            1,
+            SortOrder::DESC,
+        )
+        .await
+        .and_then(|v| {
+            if v.is_empty() {
+                return None;
+            }
+            Some(())
+        })
+        .is_none()
 }

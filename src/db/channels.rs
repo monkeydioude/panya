@@ -1,4 +1,7 @@
-use super::{mongo::Handle, model::{CollectionModel, CollectionModelConstraint}};
+use super::{
+    model::{CollectionModel, CollectionModelConstraint},
+    mongo::Handle,
+};
 use crate::error::Error;
 use mongodb::{bson::doc, results::InsertManyResult, Collection, Database, IndexModel};
 use serde::Serialize;
@@ -41,7 +44,6 @@ impl<'a, T: CollectionModelConstraint> Channels<'a, T> {
         })
     }
 }
-
 
 impl<'a, T: CollectionModelConstraint> CollectionModel<T> for Channels<'a, T> {
     fn collection(&self) -> &Collection<T> {

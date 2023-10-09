@@ -32,15 +32,11 @@ fn get_schema(link: &str) -> String {
         Err(err) => {
             warn!("could not parse url {}: {}", link, err);
             "http://".to_string()
-        },
+        }
     }
 }
 
-pub fn cook(
-    link: &str,
-    title: &str, 
-    articles: Vec<PotentialArticle>,
-) -> String {
+pub fn cook(link: &str, title: &str, articles: Vec<PotentialArticle>) -> String {
     let mut items = vec![];
     let schema = get_schema(link);
     for value in articles.iter() {
@@ -61,7 +57,7 @@ pub fn cook(
             dublin_core_ext: None,
         });
     }
-    
+
     ChannelBuilder::default()
         .title(title.to_string())
         .link(link.to_string())

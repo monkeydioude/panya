@@ -1,6 +1,11 @@
 use crate::error::Error;
 use futures::StreamExt;
-use mongodb::{bson::{doc, Document}, results::InsertManyResult, Collection, Database, options::FindOptions};
+use mongodb::{
+    bson::{doc, Document},
+    options::FindOptions,
+    results::InsertManyResult,
+    Collection, Database,
+};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{fmt::Debug, vec};
 
@@ -24,9 +29,14 @@ impl From<Option<SortOrder>> for SortOrder {
     }
 }
 
-pub trait CollectionModelConstraint : Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned {}
-impl<T> CollectionModelConstraint for T
-where T: Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned {}
+pub trait CollectionModelConstraint:
+    Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned
+{
+}
+impl<T> CollectionModelConstraint for T where
+    T: Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned
+{
+}
 
 pub trait CollectionModel<T: CollectionModelConstraint> {
     async fn insert_many(&self, data: &[T]) -> Result<InsertManyResult, Error> {
@@ -37,7 +47,7 @@ pub trait CollectionModel<T: CollectionModelConstraint> {
         self.collection()
             .insert_many(data, None)
             .await
-            .map_err(Error::from)     
+            .map_err(Error::from)
     }
 
     async fn find_by_field_values(&self, data: &[T], field: &str, limit: i64) -> Vec<T> {
@@ -50,11 +60,16 @@ pub trait CollectionModel<T: CollectionModelConstraint> {
         let mut cursor = match self
             .collection()
             .find(
-                filter, 
-                FindOptions::builder().limit(limit).sort(doc! {"_id": SortOrder::DESC.value()}).build(),
-            ).await {
-                Ok(c) => c,
-                Err(_) => return vec![],
+                filter,
+                FindOptions::builder()
+                    .limit(limit)
+                    .sort(doc! {"_id": SortOrder::DESC.value()})
+                    .build(),
+            )
+            .await
+        {
+            Ok(c) => c,
+            Err(_) => return vec![],
         };
         let mut results = vec![];
         while let Some(Ok(res)) = cursor.next().await {
@@ -78,24 +93,28 @@ pub trait CollectionModel<T: CollectionModelConstraint> {
             })
             .build();
 
-            match self
+        match self
             .collection()
             .find(doc, find_options)
             .await
             .map_err(|err| {
-                warn!("model::CollectionModel::find_latests could not find latest: {}", err);
+                warn!(
+                    "model::CollectionModel::find_latests could not find latest: {}",
+                    err
+                );
                 err
             })
-            .ok() {
-                Some(mut cursor) => {
-                    let mut results = vec![];
-                    while let Some(Ok(res)) = cursor.next().await {
-                        results.push(res);
-                    }
-                    Some(results)
-                },
-                None => None,
+            .ok()
+        {
+            Some(mut cursor) => {
+                let mut results = vec![];
+                while let Some(Ok(res)) = cursor.next().await {
+                    results.push(res);
+                }
+                Some(results)
             }
+            None => None,
+        }
     }
 
     async fn find_latests(
@@ -106,7 +125,7 @@ pub trait CollectionModel<T: CollectionModelConstraint> {
         sort: impl Into<Option<SortOrder>>,
     ) -> Option<Vec<T>> {
         if field.is_empty() {
-            return None
+            return None;
         }
 
         let find_options = FindOptions::builder()
@@ -118,7 +137,7 @@ pub trait CollectionModel<T: CollectionModelConstraint> {
         let mut doc = doc! {};
         let after_into = after.into();
 
-        if !after_into.is_none() {
+        if after_into.is_some() {
             doc = doc! {
                 field: {
                     "$gt": after_into.unwrap(),
@@ -131,26 +150,29 @@ pub trait CollectionModel<T: CollectionModelConstraint> {
             .find(doc, find_options)
             .await
             .map_err(|err| {
-                warn!("model::CollectionModel::find_latests could not find latest: {}", err);
+                warn!(
+                    "model::CollectionModel::find_latests could not find latest: {}",
+                    err
+                );
                 err
             })
-            .ok() {
-                Some(mut cursor) => {
-                    let mut results = vec![];
-                    while let Some(Ok(res)) = cursor.next().await {
-                        results.push(res);
-                    }
-                    Some(results)
-                },
-                None => None,
+            .ok()
+        {
+            Some(mut cursor) => {
+                let mut results = vec![];
+                while let Some(Ok(res)) = cursor.next().await {
+                    results.push(res);
+                }
+                Some(results)
             }
+            None => None,
+        }
     }
 
     fn collection(&self) -> &Collection<T>;
     fn get_collection_name(&self) -> String;
     fn get_database(&self) -> Option<&Database>;
 }
-
 
 pub trait FieldSort<V> {
     fn sort_by_value(&self) -> V;
@@ -176,17 +198,13 @@ impl<'a, T: CollectionModelConstraint> CollectionModel<T> for BlankCollection<'a
     }
 }
 
-impl <'a, T: CollectionModelConstraint> BlankCollection<'a, T> {
-    pub fn new(
-        handle: &'a Handle,
-        db_name: &'a str,
-        collection_name: &str,
-    ) -> Result<Self, Error> {
+impl<'a, T: CollectionModelConstraint> BlankCollection<'a, T> {
+    pub fn new(handle: &'a Handle, db_name: &'a str, collection_name: &str) -> Result<Self, Error> {
         let collection = (match handle.database(db_name) {
-                Some(res) => res,
-                None => return Error::to_result_string("no database found"),
-            })
-            .collection::<T>(collection_name);
+            Some(res) => res,
+            None => return Error::to_result_string("no database found"),
+        })
+        .collection::<T>(collection_name);
 
         Ok(Self {
             db_name,

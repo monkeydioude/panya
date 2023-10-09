@@ -3,5 +3,6 @@
     "api_path": "http://localhost:8082",
     "db_path": "mongodb://localhost:27017",
     "databases": ["channels", "panya"],
-    "app_name": "Pan-Ya"
+    "app_name": "Pan-Ya",
+    "bakery_trigger_cooldown": 2
 }

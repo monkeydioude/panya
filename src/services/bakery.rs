@@ -1,4 +1,4 @@
-use chrono::{Utc, TimeZone};
+use chrono::{TimeZone, Utc};
 use rocket::error;
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +9,7 @@ pub struct PotentialArticle {
     pub link: String,
     pub img: String,
     pub desc: String,
-    #[serde(alias="date")]
+    #[serde(alias = "date")]
     pub create_date: i64,
 }
 
@@ -31,12 +31,12 @@ impl PotentialArticle {
     }
 
     pub fn human_date(&self) -> String {
-        Utc
-            .timestamp_opt(self.create_date, 0)
+        Utc.timestamp_opt(self.create_date, 0)
             .single()
             .unwrap_or(Utc::now())
-            .format("%Y-%m-%d %H:%M:%S").to_string()
-    } 
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+    }
 
     pub fn some_human_date(&self) -> Option<String> {
         Some(self.human_date())

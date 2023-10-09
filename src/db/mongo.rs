@@ -20,15 +20,13 @@ impl Handle {
     }
 
     pub async fn new(settings: &Settings) -> Self {
-        let mut client_options = ClientOptions::parse(&settings.db_path)
-            .await
-            .unwrap();
+        let mut client_options = ClientOptions::parse(&settings.db_path).await.unwrap();
         client_options.app_name = Some(settings.app_name.clone());
         let client = Client::with_options(client_options).unwrap();
-        let databases = (&settings
-            .databases)
-            .into_iter()
-            .map(|name| (name.clone(), client.database(&name)))
+        let databases = settings
+            .databases
+            .iter()
+            .map(|name| (name.clone(), client.database(name)))
             .collect();
 
         Handle { client, databases }

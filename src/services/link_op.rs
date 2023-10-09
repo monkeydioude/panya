@@ -12,4 +12,3 @@ impl HostStr for String {
         }
     }
 }
-

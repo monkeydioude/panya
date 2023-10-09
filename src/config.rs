@@ -9,6 +9,7 @@ pub struct Settings {
     pub databases: Vec<String>,
     pub db_path: String,
     pub app_name: String,
+    pub bakery_trigger_cooldown: i64,
 }
 
 // #[derive(Debug, Deserialize)]

@@ -1,4 +1,4 @@
-use chrono::{Utc, Duration, DateTime};
+use chrono::{DateTime, Duration, Utc};
 
 pub fn datetime_minus_minutes(minus_minutes: i64, dt: DateTime<Utc>) -> i64 {
     (dt - Duration::minutes(minus_minutes)).timestamp()
