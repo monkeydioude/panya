@@ -24,7 +24,7 @@ services:
   bakery:
     image: drannoc/bakery
     ports:
-      - "8082:8082"
+      - "8084:8084"
     networks:
       - panya_net
 networks:
