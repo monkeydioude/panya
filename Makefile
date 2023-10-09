@@ -5,7 +5,7 @@ all:
 	@$(MAKE) BIN=docker bin-exists
 	@docker network create panya_net || echo "Network 'panya_net' already exists. Skipping."
 	@docker compose up -d
-	@docker build -t panya .
+	@docker build --add-host=deb.debian.org:199.232.170.132 -t panya .
 	@$(MAKE) run-container
 
 .PHONY: run-container
