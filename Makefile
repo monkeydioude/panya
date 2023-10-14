@@ -5,12 +5,22 @@ all:
 	@$(MAKE) BIN=docker bin-exists
 	@docker network create panya_net || echo "Network 'panya_net' already exists. Skipping."
 	@docker compose up -d
-	@docker build --add-host=deb.debian.org:199.232.170.132 -t panya .
-	@$(MAKE) run-container
+	@docker build -t panya .
+	@docker run --rm --volume `pwd`/dist/panya:/usr/src/app/target/debug panya
 
-.PHONY: run-container
-run-container:
-	docker run -p 8083:8083 --network panya_net --name panya-api --rm panya
+.PHONY: build
+build:
+	@docker build -t panya -f build.Dockerfile .
+	@docker run --rm --volume `pwd`/dist/panya:/usr/src/app/target/debug panya
+
+.PHONY: scp-bin
+scp-bin:
+	scp -r ./config mkd@4thehoard.com:/home/mkd/.cargo/bin
+	scp ./dist/panya/panya mkd@4thehoard.com:/home/mkd/.cargo/bin
+
+.PHONY: restart-remote-panya
+restart-remote-panya:
+	ssh mkd@$4thehoard.com "sudo systemctl restart panya"
 
 .PHONY: dev
 dev: setup start
