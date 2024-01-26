@@ -31,7 +31,7 @@ fn get_schema(link: &str) -> String {
         Ok(parts) => parts.scheme().to_string() + "://",
         Err(err) => {
             warn!("could not parse url {}: {}", link, err);
-            "http://".to_string()
+            "https://".to_string()
         }
     }
 }

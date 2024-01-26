@@ -26,13 +26,13 @@ fn handle_error(err: &dyn Error, msg: &str, url: &str)-> RawXml<String> {
     RawXml(cook(url, url, vec![]))
 }
 
-async fn return_db_articles(url: &str, limit: i64, channels_coll: &Channels<'_, PotentialArticle>) -> RawXml<String> {
+async fn return_db_articles(title: &str, link: &str,limit: i64, channels_coll: &Channels<'_, PotentialArticle>) -> RawXml<String> {
     let latests: Vec<PotentialArticle> = channels_coll
         .find_latests("_id", None, limit, SortOrder::DESC)
         .await
         .unwrap_or(vec![]);
 
-    return RawXml(cook(url, url, latests));
+    return RawXml(cook(link, title, latests));
 }
 
 // /panya?url=
@@ -60,7 +60,7 @@ pub async fn get_url(
         Err(err) => return handle_error(&err, "Channels::new - can't open connection to db channels", &url),
     };
     if !should_fetch_items(&timers_coll, &url, settings.bakery_trigger_cooldown).await {
-        return return_db_articles(&url, limit, &channels_coll).await;
+        return return_db_articles(&url, &query.url, limit, &channels_coll).await;
     }
 
     let parsed_from_bakery = bakery::get_cookies_from_bakery(&settings.api_path, &query.url)
@@ -74,7 +74,7 @@ pub async fn get_url(
     timers_coll.insert_one(&url).await;
     RawXml(cook(
         &query.url,
-        &query.url,
+        &url,
         process_data_and_fetch_items(&parsed_from_bakery, channels_coll, limit).await,
     ))
 }
