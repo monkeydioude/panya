@@ -1,9 +1,12 @@
+use std::error::Error;
+
 use crate::db::channels::Channels;
 use crate::db::entities::Timer;
 use crate::db::model::{BlankCollection, CollectionModel, SortOrder};
 use crate::services::bakery::{self, PotentialArticle};
 use crate::services::cook_rss::cook;
-use crate::services::panya::{process_data_and_fetch_items, should_fetch_cookies};
+use crate::services::panya::{process_data_and_fetch_items, should_fetch_items};
+use crate::utils::clean_url;
 use crate::{config::Settings, db::mongo::Handle};
 use rocket::response::content::RawXml;
 use rocket::{error, warn};
@@ -14,6 +17,25 @@ pub struct GetUrlQuery {
     pub limit: Option<i64>,
 }
 
+fn handle_error(err: &dyn Error, msg: &str, url: &str)-> RawXml<String> {
+    error!(
+        "{}: {}",
+        msg,
+        err
+    );
+    RawXml(cook(url, url, vec![]))
+}
+
+async fn return_db_articles(url: &str, limit: i64, channels_coll: &Channels<'_, PotentialArticle>) -> RawXml<String> {
+    let latests: Vec<PotentialArticle> = channels_coll
+        .find_latests("_id", None, limit, SortOrder::DESC)
+        .await
+        .unwrap_or(vec![]);
+
+    return RawXml(cook(url, url, latests));
+}
+
+// /panya?url=
 #[get("/?<query..>")]
 pub async fn get_url(
     handle: &rocket::State<Handle>,
@@ -25,48 +47,34 @@ pub async fn get_url(
         return RawXml(cook(&query.url, &query.url, vec![]));
     }
 
+    let url = clean_url(&query.url).unwrap_or(query.url.clone());
+
     let limit = query.limit.unwrap_or(5);
     let timers_coll = match BlankCollection::<Timer>::new(handle, "panya", "timers") {
         Ok(c) => c,
-        Err(err) => {
-            error!(
-                "BlankCollection::new - can't open connection to db panya: {}",
-                err
-            );
-            return RawXml(cook(&query.url, &query.url, vec![]));
-        }
+        Err(err) => return handle_error(&err, "BlankCollection::new - can't open connection to db panya", &url),
     };
-    let channels_coll = match Channels::<PotentialArticle>::new(&query.url, handle, "channels") {
-        Ok(c) => c,
-        Err(err) => {
-            error!(
-                "Channels::new - can't open connection to db channels: {}",
-                err
-            );
-            return RawXml(cook(&query.url, &query.url, vec![]));
-        }
-    };
-    if !should_fetch_cookies(&timers_coll, &query.url, settings.bakery_trigger_cooldown).await {
-        let latests = channels_coll
-            .find_latests("_id", None, limit, SortOrder::DESC)
-            .await
-            .unwrap_or(vec![]);
 
-        return RawXml(cook(&query.url, &query.url, latests));
+    let channels_coll = match Channels::<PotentialArticle>::new(&url, handle, "channels") {
+        Ok(c) => c,
+        Err(err) => return handle_error(&err, "Channels::new - can't open connection to db channels", &url),
+    };
+    if !should_fetch_items(&timers_coll, &url, settings.bakery_trigger_cooldown).await {
+        return return_db_articles(&url, limit, &channels_coll).await;
     }
 
-    let data = bakery::get_cookies_from_bakery(&settings.api_path, &query.url)
+    let parsed_from_bakery = bakery::get_cookies_from_bakery(&settings.api_path, &query.url)
         .await
         .unwrap_or_default();
-    if data.is_empty() {
+    if parsed_from_bakery.is_empty() {
         warn!("bakery::get_cookies_from_bakery - no articles found");
         return RawXml(cook(&query.url, &query.url, vec![]));
     }
 
-    timers_coll.insert_one(&query.url).await;
+    timers_coll.insert_one(&url).await;
     RawXml(cook(
         &query.url,
         &query.url,
-        process_data_and_fetch_items(&channels_coll, &data, limit).await,
+        process_data_and_fetch_items(&parsed_from_bakery, channels_coll, limit).await,
     ))
 }

@@ -8,28 +8,25 @@ use crate::{
     utils::now_minus_minutes,
 };
 use mongodb::bson::doc;
-use rocket::error;
 
 pub async fn process_data_and_fetch_items(
-    channels: &Channels<'_, PotentialArticle>,
-    data: &Vec<PotentialArticle>,
+    parsed_from_bakery: &Vec<PotentialArticle>,
+    channels_coll: Channels<'_, PotentialArticle>,
     limit: i64,
 ) -> Vec<PotentialArticle> {
-    let found: Vec<PotentialArticle> = channels.find_by_field_values(data, "link", limit).await;
-    let to_insert = data.remove_existing(&found);
-    if to_insert.is_empty() {
-        return found.clone();
+    // find existing links
+    let existing_links = channels_coll.find_by_field_values(&parsed_from_bakery, "link", 0).await;
+    // picks out existing links in db
+    let to_insert = parsed_from_bakery.remove_existing(&existing_links);
+    // nothing to insert, move on
+    if !to_insert.is_empty() {
+        let _ = channels_coll.insert_many(&to_insert).await;
     }
-
-    if let Err(err) = channels.insert_many(&to_insert).await {
-        error!("{}", err);
-        return vec![];
-    }
-
-    data.iter().take(limit as usize).cloned().collect()
+    // returns the wanted number of items
+    parsed_from_bakery.iter().take(limit as usize).cloned().collect()
 }
 
-pub async fn should_fetch_cookies(
+pub async fn should_fetch_items(
     timers: &BlankCollection<'_, Timer>,
     channel: &str,
     cooldown: i64,
