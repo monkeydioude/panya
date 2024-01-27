@@ -13,8 +13,8 @@ use super::mongo::Handle;
 
 #[derive(Copy, Clone)]
 pub enum SortOrder {
-    ASC = 1,
-    DESC = -1,
+    ASC = -1,
+    DESC = 1,
 }
 
 impl SortOrder {
