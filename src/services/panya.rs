@@ -1,4 +1,4 @@
-use super::{bakery::PotentialArticle, vec::RemoveExisting};
+use super::{bakery::PotentialArticle, vec::RemoveReplaceExisting};
 use crate::{
     db::{
         channels::Channels,
@@ -23,7 +23,12 @@ pub async fn process_data_and_fetch_items(
         let _ = channels_coll.insert_many(&to_insert).await;
     }
     // returns the wanted number of items
-    parsed_from_bakery.iter().take(limit as usize).cloned().collect()
+    parsed_from_bakery
+        .replace_existing(&existing_links)
+        .iter()
+        .take(limit as usize)
+        .cloned()
+        .collect()
 }
 
 pub async fn should_fetch_items(
