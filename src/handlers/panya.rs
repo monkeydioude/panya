@@ -28,7 +28,7 @@ fn handle_error(err: &dyn Error, msg: &str, url: &str)-> RawXml<String> {
 
 async fn return_db_articles(title: &str, link: &str,limit: i64, channels_coll: &Channels<'_, PotentialArticle>) -> RawXml<String> {
     let latests: Vec<PotentialArticle> = channels_coll
-        .find_latests("_id", None, limit, SortOrder::DESC)
+        .find_latests("create_date", None, limit, SortOrder::DESC)
         .await
         .unwrap_or(vec![]);
 

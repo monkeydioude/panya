@@ -11,10 +11,10 @@ use std::{fmt::Debug, vec};
 
 use super::mongo::Handle;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum SortOrder {
-    ASC = -1,
-    DESC = 1,
+    ASC = 1,
+    DESC = -1,
 }
 
 impl SortOrder {
@@ -89,7 +89,7 @@ pub trait CollectionModel<T: CollectionModelConstraint> {
         let find_options = FindOptions::builder()
             .limit(limit)
             .sort(doc! {
-                field.unwrap_or("_id"): sort.into().unwrap_or(SortOrder::ASC).value(),
+                field.unwrap_or("_id"): sort.into().unwrap_or(SortOrder::DESC).value(),
             })
             .build();
 
@@ -131,7 +131,7 @@ pub trait CollectionModel<T: CollectionModelConstraint> {
         let find_options = FindOptions::builder()
             .limit(limit)
             .sort(doc! {
-                field: sort.into().unwrap_or(SortOrder::ASC).value(),
+                field: sort.into().unwrap_or(SortOrder::DESC).value(),
             })
             .build();
         let mut doc = doc! {};
