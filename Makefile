@@ -3,10 +3,9 @@ CARGO_WATCH_IGNORES := $(shell grep -E '^[^\#]| ?\n' .gitignore | sed 's/^/--ign
 .PHONY: all
 all: 
 	@$(MAKE) BIN=docker bin-exists
-	@docker network create panya_net || echo "Network 'panya_net' already exists. Skipping."
-	@docker compose up -d
-	@cargo install --path .
-	# @docker build -t panya .
+	@docker network create panya_net 2>/dev/null || true
+	-@docker compose up -d --remove-orphans || true
+	sudo -H -u mkd cargo install --path . --force
 	# @docker run --rm --volume `pwd`/dist/panya:/usr/src/app/target/debug panya
 
 .PHONY: build
