@@ -5,8 +5,9 @@ all:
 	@$(MAKE) BIN=docker bin-exists
 	@docker network create panya_net || echo "Network 'panya_net' already exists. Skipping."
 	@docker compose up -d
-	@docker build -t panya .
-	@docker run --rm --volume `pwd`/dist/panya:/usr/src/app/target/debug panya
+	@cargo install --path .
+	# @docker build -t panya .
+	# @docker run --rm --volume `pwd`/dist/panya:/usr/src/app/target/debug panya
 
 .PHONY: build
 build:

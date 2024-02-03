@@ -21,12 +21,12 @@ services:
       - ./output:/app/output
     networks:
       - panya_net
-  bakery:
-    image: drannoc/bakery
-    ports:
-      - "8084:8084"
-    networks:
-      - panya_net
+  # bakery:
+  #   image: drannoc/bakery
+  #   ports:
+  #     - "8084:8084"
+  #   networks:
+  #     - panya_net
 networks:
   panya_net:
     external: true
