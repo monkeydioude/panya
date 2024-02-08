@@ -38,7 +38,7 @@ async fn lezgong(routes: Vec<Route>, port: u16) -> Rocket<Build> {
         })))
         .attach(AdHoc::on_response("time_after", | req, res | Box::pin(async move {
             let time = req.local_cache(|| 0 as u128);
-            info!("request: {}, status: {}, time: {:}", req.uri().path(), res.status() , now_timestamp_ms() - time);
+            info!("request: {:?}\nresponse: {:?}\nstatus: {}\nexec time: {:}", req.uri(), res, res.status(), now_timestamp_ms() - time);
         })))
         .manage(db::mongo::get_handle(&settings).await)
         .manage(settings)
