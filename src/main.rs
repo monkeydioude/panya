@@ -29,6 +29,7 @@ async fn lezgong(routes: Vec<Route>, port: u16) -> Rocket<Build> {
                 .parse::<Ipv4Addr>()
                 .unwrap_or(Ipv4Addr::new(0, 0, 0, 0))
                 .into(),
+            log_level: rocket::config::LogLevel::Debug,
             ..Config::default()
         })
         .mount("/panya", routes)
