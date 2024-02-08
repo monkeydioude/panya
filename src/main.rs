@@ -10,7 +10,9 @@ pub mod services;
 pub mod utils;
 
 use handlers::panya::get_url;
-use rocket::{Build, Config, Rocket, Route};
+use rocket::{fairing::AdHoc, Build, Config, Rocket, Route, info};
+
+use utils::now_timestamp_ms;
 use std::net::Ipv4Addr;
 
 #[get("/healthcheck")]
@@ -30,6 +32,13 @@ async fn lezgong(routes: Vec<Route>, port: u16) -> Rocket<Build> {
             ..Config::default()
         })
         .mount("/panya", routes)
+        .attach(AdHoc::on_request("time_before", | req, _ | Box::pin(async move {
+            req.local_cache(|| now_timestamp_ms());
+        })))
+        .attach(AdHoc::on_response("time_after", | req, res | Box::pin(async move {
+            let time = req.local_cache(|| 0 as u128);
+            info!("request: {}, status: {}, time: {:}", req.uri().path(), res.status() , now_timestamp_ms() - time);
+        })))
         .manage(db::mongo::get_handle(&settings).await)
         .manage(settings)
 }
