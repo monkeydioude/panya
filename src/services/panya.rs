@@ -44,7 +44,7 @@ pub async fn should_fetch_items(
                     "$gt": now_minus_minutes(cooldown),
                 },
             },
-            Some("update_date"),
+            Some("create_date"),
             1,
             SortOrder::DESC,
         )
