@@ -21,7 +21,7 @@ impl<'a, T: CollectionModelConstraint> Channels<'a, T> {
         // An Err() is returned, if that's the case.
         self.collection()
             // Oftenly creating new collectionm therefore index
-            .create_index(IndexModel::builder().keys(doc! {"link": -1}).build(), None)
+            .create_index(IndexModel::builder().keys(doc! {"create_date": -1}).build(), None)
             .await?;
         CollectionModel::<T>::insert_many(self, data).await
     }
