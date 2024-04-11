@@ -28,6 +28,10 @@ dev: setup start
 .PHONY: start
 start:
 	@docker compose up -d
+	$(MAKE) watch
+
+.PHONY: watch
+watch:
 	cargo watch $(CARGO_WATCH_IGNORES) -x 'run'
 
 .PHONY: setup

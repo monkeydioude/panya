@@ -13,7 +13,6 @@ impl FieldSort<String> for PotentialArticle {
 
 pub async fn get_cookies_from_bakery(api_path: &str, url: &str) -> Option<Vec<PotentialArticle>> {
     let response = reqwest::get(format!("{}/bakery?url={}", api_path, url)).await;
-
     let raw_data = match response {
         Ok(res) => res.text().await.unwrap_or("[]".to_string()),
         Err(err) => {

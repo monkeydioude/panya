@@ -38,11 +38,10 @@ fn get_schema(link: &str) -> String {
 
 pub fn cook(link: &str, title: &str, articles: Vec<PotentialArticle>) -> String {
     let mut items = vec![];
-    let schema = get_schema(link);
     for value in articles.iter() {
         items.push(Item {
             title: value.some_desc(),
-            link: Some(schema.to_string() + &value.link),
+            link: Some(value.link.to_string()),
             description: value.some_desc(),
             author: None,
             categories: vec![],
