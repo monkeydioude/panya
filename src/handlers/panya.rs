@@ -3,7 +3,8 @@ use std::error::Error;
 use crate::db::channels::Channels;
 use crate::db::entities::Timer;
 use crate::db::model::{BlankCollection, CollectionModel, SortOrder};
-use crate::services::bakery::{self, PotentialArticle};
+use crate::entities::potential_articles::PotentialArticle;
+use crate::services::bakery;
 use crate::services::cook_rss::cook;
 use crate::services::panya::{process_data_and_fetch_items, should_fetch_items};
 use crate::utils::clean_url;
@@ -13,8 +14,8 @@ use rocket::{error, warn};
 
 #[derive(FromForm)]
 pub struct GetUrlQuery {
-    pub url: String,
-    pub limit: Option<i64>,
+    url: String,
+    limit: Option<i64>,
 }
 
 fn handle_error(err: &dyn Error, msg: &str, url: &str)-> RawXml<String> {

@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use rss::{ChannelBuilder, Item};
 use url::Url;
 
-use super::bakery::PotentialArticle;
+use crate::entities::potential_articles::PotentialArticle;
 
 impl From<PotentialArticle> for Item {
     fn from(value: PotentialArticle) -> Self {

@@ -10,6 +10,7 @@ pub struct Settings {
     pub db_path: String,
     pub app_name: String,
     pub bakery_trigger_cooldown: i64,
+    pub default_item_per_feed: i32,
 }
 
 // #[derive(Debug, Deserialize)]

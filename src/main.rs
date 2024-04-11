@@ -8,8 +8,10 @@ pub mod error;
 pub mod handlers;
 pub mod services;
 pub mod utils;
+pub mod converters;
+pub mod entities;
 
-use handlers::panya::get_url;
+use handlers::{panya::get_url, feed::get_feed, refresher::post_refresher};
 use rocket::{fairing::AdHoc, Build, Config, Rocket, Route, info};
 
 use utils::now_timestamp_ms;
@@ -46,5 +48,5 @@ async fn lezgong(routes: Vec<Route>, port: u16) -> Rocket<Build> {
 
 #[launch]
 async fn launch() -> _ {
-    lezgong(routes![healthcheck, get_url], 8083).await
+    lezgong(routes![healthcheck, get_url, get_feed, post_refresher], 8083).await
 }
