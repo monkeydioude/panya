@@ -4,5 +4,6 @@
     "db_path": "mongodb://localhost:27017",
     "databases": ["channels", "panya"],
     "app_name": "Pan-Ya",
-    "bakery_trigger_cooldown": 5
+    "bakery_trigger_cooldown": 5,
+    "default_item_per_feed": 10
 }

@@ -25,5 +25,6 @@ rss = "2.0.6"
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }
 [profile.dev]
-opt-level = 1
-
+opt-level = 0
+[profile.release]
+opt-level = 0
