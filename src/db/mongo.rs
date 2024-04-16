@@ -1,7 +1,5 @@
 use std::collections::HashMap;
-
-use mongodb::{options::ClientOptions, Client, Database};
-
+use mongodb::{bson::Bson, options::ClientOptions, Client, Database};
 use crate::config::Settings;
 
 #[derive(Debug)]
@@ -19,6 +17,7 @@ impl Handle {
         self.databases.get(db_name)
     }
 
+
     pub async fn new(settings: &Settings) -> Self {
         let mut client_options = ClientOptions::parse(&settings.db_path).await.unwrap();
         client_options.app_name = Some(settings.app_name.clone());
@@ -31,6 +30,11 @@ impl Handle {
 
         Handle { client, databases }
     }
+    
+}
+
+pub fn i32_to_bson(vec: &Vec<i32>) -> Vec<Bson> {
+    vec.iter().map(|&id| Bson::Int32(id)).collect::<Vec<Bson>>()
 }
 
 pub async fn get_handle(settings: &Settings) -> Handle {

@@ -1,28 +1,37 @@
 use crate::{
-    entities::potential_articles::PotentialArticle,
     db::{
-        channels::Channels,
-        entities::Timer,
-        model::{BlankCollection, CollectionModel, SortOrder},
-    },
-    utils::now_minus_minutes,
-    services::vec::RemoveReplaceExisting,
+        entities::Timer, items::{get_channel_id, Items}, model::{BlankCollection, CollectionModel, SortOrder}
+    }, entities::potential_articles::PotentialArticle, services::vec::RemoveReplaceExisting, utils::now_minus_minutes
 };
 use mongodb::bson::doc;
 
 pub async fn process_data_and_fetch_items(
     articles: &Vec<PotentialArticle>,
-    channels_coll: Channels<'_, PotentialArticle>,
+    items_coll: Items<'_, PotentialArticle>,
+    channel_name: &str,
     limit: i64,
 ) -> Vec<PotentialArticle> {
     // find existing links
-    let existing_links = channels_coll.find_by_field_values(&articles, "link", 0).await;
+    let existing_links = items_coll.find_by_field_values(&articles, "link", 0).await;
     // picks out existing links in db
-    let to_insert = articles.remove_existing(&existing_links);
-    println!("{:?}", to_insert);
+    let mut to_insert = articles.remove_existing(&existing_links);
+
     // nothing to insert, move on
     if !to_insert.is_empty() {
-        let _ = channels_coll.insert_many(&to_insert).await;
+        let channel_id = match get_channel_id(&items_coll, channel_name).await {
+            Ok(r) => r,
+            Err(_) => {
+                error!("could not find any channel_id for: {}", channel_name);
+                return vec![];
+            },
+        };
+        to_insert
+            .iter_mut()
+            .for_each(|pa| {
+                pa.channel_name = Some(channel_name.to_string());
+                pa.channel_id = Some(channel_id);
+            });
+        let _ = items_coll.insert_many(&to_insert, None).await;
     }
     // returns the wanted number of items
     articles

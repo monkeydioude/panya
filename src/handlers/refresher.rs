@@ -31,7 +31,7 @@ pub async fn post_refresher(
         Err(err) => return handle_error(&err, "BlankCollection::new - can't open connection to db panya"),
     };
 
-    let res = refresh_coll.find_latests("refresh_frequency", None, 10, None)
+    let res = refresh_coll.find_latests("refresh_frequency", None, 10, None, None)
         .await
         .unwrap_or(vec![]);
 

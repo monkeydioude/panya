@@ -6,3 +6,4 @@ pub mod vec;
 pub mod request_rss;
 pub mod bakery;
 pub mod refresh;
+pub mod channels;

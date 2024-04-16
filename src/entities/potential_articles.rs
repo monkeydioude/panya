@@ -8,6 +8,8 @@ pub struct PotentialArticle {
     pub desc: String,
     #[serde(alias = "date")]
     pub create_date: i64,
+    pub channel_name: Option<String>,
+    pub channel_id: Option<i32>,
 }
 
 impl PotentialArticle {
