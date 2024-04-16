@@ -29,7 +29,7 @@ pub async fn get_feed(
 	let ids: Vec<i32> = query.ids
 		.split(",")
 		// convert from String to u32
-		.map(|e| e.parse::<i32>().unwrap_or_default())
+		.filter_map(|e| e.trim().parse::<i32>().ok())
 		.collect();
 	let items_coll = match Items::<PotentialArticle>::new(db_handle, "panya") {
 		Ok(c) => c,

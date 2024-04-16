@@ -1,5 +1,5 @@
 use crate::error::Error;
-use futures::{future, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{doc, Bson, Document},
     options::{FindOneAndUpdateOptions, FindOptions},
@@ -7,7 +7,7 @@ use mongodb::{
     Collection, Database,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{any::Any, collections::HashMap, fmt::Debug, vec};
+use std::{collections::HashMap, fmt::Debug, vec};
 
 use super::mongo::Handle;
 
@@ -30,11 +30,11 @@ impl From<Option<SortOrder>> for SortOrder {
 }
 
 pub trait CollectionModelConstraint:
-    Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned
+    Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned + Clone
 {
 }
 impl<T> CollectionModelConstraint for T where
-    T: Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned
+    T: Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned + Clone
 {
 }
 
@@ -42,6 +42,11 @@ impl<T> CollectionModelConstraint for T where
 struct Counter {
     _id: String,
     seq: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct DocsWrapper<T> {
+    docs: Vec<T>,
 }
 
 pub trait CollectionModel<T: CollectionModelConstraint> {
@@ -140,23 +145,22 @@ pub trait CollectionModel<T: CollectionModelConstraint> {
                 };
         }
         let mut pipeline = vec![
-            doc! { "$match": { field: { "$in": values } } },  // Step 1: Filter documents
-            // doc! { "$sort": { "some_field": 1 } },  // Optional: sort by some field if needed
-            doc! { "$group": {  // Step 2: Group by channel_id
-                "_id": "$".to_owned()+field,
-                "docs": { "$push": "$$ROOT" }  // Collect all documents per channel_id
+            doc! { "$match": { field: { "$in": values } } },
+            doc! { "$group": {
+                "_id": format!("${}", field),
+                "docs": { "$push": "$$ROOT" }
             }},
-            doc! { "$project": {  // Step 3: Limit the number of docs per group
-                "docs": { "$slice": ["$docs", max_limit] }  // Limit number to 2 per group
+            doc! { "$project": {
+                "_id": 0,
+                "link": 1,
+                "docs": { "$slice": ["$docs", max_limit] }
             }}
         ];
 
-        let sort_into = sort_tuple.into();
-        if sort_into.is_some() {
-            let usort_tuple = sort_into.unwrap();
-            pipeline.insert(1, doc! { "$sort": {usort_tuple.0: usort_tuple.1.value() }});
+        if let Some((field_name, order)) = sort_tuple.into() {
+            pipeline.insert(1, doc! { "$sort": {field_name: order.value()} });
         }
-    
+
         let mut cursor = self.collection()
             .aggregate(pipeline, None)
             .await
@@ -168,9 +172,9 @@ pub trait CollectionModel<T: CollectionModelConstraint> {
             let mut results = Vec::<T>::new();
             while let Some(doc) = cursor.next().await {
                 match doc {
-                    Ok(doc) => match mongodb::bson::from_document::<T>(doc) {
+                    Ok(doc) => match mongodb::bson::from_document::<DocsWrapper<T>>(doc) {
                         Ok(t) => {
-                            results.push(t)
+                            t.docs.iter().for_each(|inner_doc| results.push(inner_doc.clone()));
                         },
                         Err(e) => {
                             warn!("model::CollectionModel::find_with_limits failed to deserialize document: {}", e);

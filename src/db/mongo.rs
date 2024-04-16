@@ -40,3 +40,13 @@ pub fn i32_to_bson(vec: &Vec<i32>) -> Vec<Bson> {
 pub async fn get_handle(settings: &Settings) -> Handle {
     Handle::new(settings).await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_i32_to_bson() {
+        assert_eq!(i32_to_bson(&vec![1, 2]), vec![Bson::Int32(1), Bson::Int32(2)]);
+    }
+}
