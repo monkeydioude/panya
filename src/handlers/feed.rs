@@ -3,7 +3,6 @@ use std::collections::HashMap;
 
 use crate::db::items::Items;
 use crate::db::model::{CollectionModel, SortOrder};
-use crate::db::mongo::i32_to_bson;
 use crate::entities::potential_articles::PotentialArticle;
 use crate::{config::Settings, db::mongo::Handle};
 use mongodb::bson::doc;
@@ -39,22 +38,18 @@ pub async fn get_feed(
 		}
 	};
 	let max_limit = settings.default_item_per_feed;
-	let items = items_coll
+	let mut items = items_coll
 		.find_with_limits(
 			"channel_id",
-			i32_to_bson(&ids), 
-			query.limits,
+			ids, 
+			query.limits.unwrap_or_default(),
 			max_limit,
 			("create_date", SortOrder::DESC),
 		)
 		.await
-		// .unwrap_or_default();
-		.unwrap_or_else(|| {
-			vec![]
-		});
-		Json(
-			items
-		)
+		.unwrap_or_else(|| vec![]);
+		items.sort_by(|a, b| b.cmp(a));
+		Json(items)
 	}
 	
 	

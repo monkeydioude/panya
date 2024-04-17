@@ -3,8 +3,6 @@ use std::error::Error;
 use crate::db::items::Items;
 use crate::db::entities::Timer;
 use crate::db::model::{BlankCollection, CollectionModel, SortOrder};
-use crate::db::mongo::i32_to_bson;
-use crate::entities::channel::Channel;
 use crate::entities::potential_articles::PotentialArticle;
 use crate::services::bakery;
 use crate::services::cook_rss::cook;
@@ -13,7 +11,6 @@ use crate::utils::clean_url;
 use crate::{config::Settings, db::mongo::Handle};
 use mongodb::bson::doc;
 use rocket::response::content::RawXml;
-use rocket::serde::json::Json;
 use rocket::{error, warn};
 
 #[derive(FromForm)]

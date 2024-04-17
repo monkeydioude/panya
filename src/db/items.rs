@@ -14,7 +14,7 @@ pub struct Items<'a, T: Serialize> {
     db_name: String,
 }
 
-impl<'a, T: CollectionModelConstraint> Items<'a, T> {
+impl<'a, T: CollectionModelConstraint<i32>> Items<'a, T> {
     pub async fn insert_many(&self, data: &[T], index: Option<String>) -> Result<InsertManyResult, Error> {
         let idx = index.unwrap_or_else(|| "create_date".to_string());
         // Works cause we dont store result, nor do we return it.
@@ -23,7 +23,7 @@ impl<'a, T: CollectionModelConstraint> Items<'a, T> {
             // Oftenly creating new collectionm therefore index
             .create_index(IndexModel::builder().keys(doc! {idx: -1}).build(), None)
             .await?;
-        CollectionModel::<T>::insert_many(self, data).await
+        CollectionModel::<i32, T>::insert_many(self, data).await
     }
 
     pub fn get_database_name(&self) -> &String {
@@ -44,7 +44,7 @@ impl<'a, T: CollectionModelConstraint> Items<'a, T> {
     }
 }
 
-impl<'a, T: CollectionModelConstraint> CollectionModel<T> for Items<'a, T> {
+impl<'a, P: PartialEq, T: CollectionModelConstraint<P>> CollectionModel<P, T> for Items<'a, T> {
     fn collection(&self) -> &Collection<T> {
         &self.collection
     }

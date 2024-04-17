@@ -5,5 +5,5 @@
     "databases": ["channels", "panya", "panya-test"],
     "app_name": "Pan-Ya",
     "bakery_trigger_cooldown": 5,
-    "default_item_per_feed": 10
+    "default_item_per_feed": 15
 }

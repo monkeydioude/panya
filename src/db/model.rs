@@ -1,15 +1,15 @@
 use crate::error::Error;
 use futures::{StreamExt, TryStreamExt};
 use mongodb::{
-    bson::{doc, Bson, Document},
+    bson::{doc, Document},
     options::{FindOneAndUpdateOptions, FindOptions},
     results::InsertManyResult,
     Collection, Database,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Debug, vec};
+use std::{collections::HashMap, fmt::{Debug, Display}, vec};
 
-use super::mongo::Handle;
+use super::mongo::{i32_to_bson, Handle};
 
 #[derive(Copy, Clone, Debug)]
 pub enum SortOrder {
@@ -29,12 +29,12 @@ impl From<Option<SortOrder>> for SortOrder {
     }
 }
 
-pub trait CollectionModelConstraint:
-    Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned + Clone
+pub trait CollectionModelConstraint<P: PartialEq>:
+    Serialize + FieldSort<String> + PrimaryID<P> + Debug + Unpin + Send + Sync + DeserializeOwned + Clone
 {
 }
-impl<T> CollectionModelConstraint for T where
-    T: Serialize + FieldSort<String> + Debug + Unpin + Send + Sync + DeserializeOwned + Clone
+impl<P: PartialEq, T> CollectionModelConstraint<P> for T where
+    T: Serialize + FieldSort<String> + PrimaryID<P> + Debug + Unpin + Send + Sync + DeserializeOwned + Clone
 {
 }
 
@@ -49,7 +49,7 @@ struct DocsWrapper<T> {
     docs: Vec<T>,
 }
 
-pub trait CollectionModel<T: CollectionModelConstraint> {
+pub trait CollectionModel<P: PartialEq, T: CollectionModelConstraint<P>> {
     async fn insert_many(&self, data: &[T]) -> Result<InsertManyResult, Error> {
         if data.is_empty() {
             return Error::to_result_string("empty input")?;
@@ -128,24 +128,21 @@ pub trait CollectionModel<T: CollectionModelConstraint> {
         }
     }
 
-    async fn find_with_limits<L: PartialEq + Ord>(
+    async fn find_with_limits<L: Eq + PartialEq<P> + Ord + PartialOrd + Sized + Debug + Display>(
         &self,
         field: &str,
-        values: Vec<Bson>,
-        limits: Option<HashMap<L, i64>>,
+        field_in: Vec<i32>,
+        limits: HashMap<L, i64>,
         mut max_limit: i64,
         sort_tuple: impl Into<Option<(&str, SortOrder)>>,
     ) -> Option<Vec<T>> {
-        if limits.is_some() {
-            max_limit = match limits.unwrap_or_default()
-                .iter()
-                .max() {
-                    Some(res) => *res.1,
-                    None => max_limit,
-                };
-        }
+        max_limit = limits
+            .iter()
+            .map(|e| *e.1)
+            .max()
+            .unwrap_or(max_limit);
         let mut pipeline = vec![
-            doc! { "$match": { field: { "$in": values } } },
+            doc! { "$match": { field: { "$in": i32_to_bson(&field_in) } } },
             doc! { "$group": {
                 "_id": format!("${}", field),
                 "docs": { "$push": "$$ROOT" }
@@ -153,14 +150,12 @@ pub trait CollectionModel<T: CollectionModelConstraint> {
             doc! { "$project": {
                 "_id": 0,
                 "link": 1,
-                "docs": { "$slice": ["$docs", max_limit] }
+                "docs": { "$slice": ["$docs", max_limit * field_in.len() as i64] }
             }}
         ];
-
         if let Some((field_name, order)) = sort_tuple.into() {
             pipeline.insert(1, doc! { "$sort": {field_name: order.value()} });
         }
-
         let mut cursor = self.collection()
             .aggregate(pipeline, None)
             .await
@@ -169,24 +164,23 @@ pub trait CollectionModel<T: CollectionModelConstraint> {
                 err
             })
             .ok()?;
-            let mut results = Vec::<T>::new();
-            while let Some(doc) = cursor.next().await {
-                match doc {
-                    Ok(doc) => match mongodb::bson::from_document::<DocsWrapper<T>>(doc) {
-                        Ok(t) => {
-                            t.docs.iter().for_each(|inner_doc| results.push(inner_doc.clone()));
-                        },
-                        Err(e) => {
-                            warn!("model::CollectionModel::find_with_limits failed to deserialize document: {}", e);
-                        },
+        let mut results = Vec::<T>::new();
+        while let Some(doc) = cursor.next().await {
+            match doc {
+                Ok(doc) => match mongodb::bson::from_document::<DocsWrapper<T>>(doc) {
+                    Ok(t) => {
+                        let limit = t.docs.last()
+                            .and_then(|t_item| t_item.get_primary_id())
+                            .and_then(|p_item| limits.iter().find(|el| el.0 == &p_item).map(|l| *l.1))
+                            .unwrap_or(max_limit);
+                        t.docs.iter().take(limit as usize).for_each(|inner_doc| results.push(inner_doc.clone()))
                     },
-                    Err(e) => {
-                        warn!("model::CollectionModel::find_with_limits failed to retrieve document: {}", e);
-                    },
-                }
+                    Err(e) => warn!("model::CollectionModel::find_with_limits failed to deserialize document: {}", e),
+                },
+                Err(e) => warn!("model::CollectionModel::find_with_limits failed to retrieve document: {}", e),
             }
-            Some(results)
-        
+        }
+        Some(results)
     }
 
     async fn find_latests(
@@ -279,13 +273,17 @@ pub trait FieldSort<V> {
     fn sort_by_value(&self) -> V;
 }
 
+pub trait PrimaryID<T: PartialEq> {
+    fn get_primary_id(&self) -> Option<T>;
+}
+
 pub struct BlankCollection<'a, T: Serialize> {
     collection: Collection<T>,
     handle: &'a Handle,
     db_name: &'a str,
 }
 
-impl<'a, T: CollectionModelConstraint> CollectionModel<T> for BlankCollection<'a, T> {
+impl<'a, P: PartialEq, T: CollectionModelConstraint<P>> CollectionModel<P, T> for BlankCollection<'a, T> {
     fn collection(&self) -> &Collection<T> {
         &self.collection
     }
@@ -299,7 +297,7 @@ impl<'a, T: CollectionModelConstraint> CollectionModel<T> for BlankCollection<'a
     }
 }
 
-impl<'a, T: CollectionModelConstraint> BlankCollection<'a, T> {
+impl<'a, T: CollectionModelConstraint<String>> BlankCollection<'a, T> {
     pub fn new(handle: &'a Handle, db_name: &'a str, collection_name: &str) -> Result<Self, Error> {
         let collection = (match handle.database(db_name) {
             Some(res) => res,
@@ -320,8 +318,8 @@ mod tests {
     use std::collections::HashMap;
 
     use serde::{Deserialize, Serialize};
-    use crate::{config, db::{self, items::Items, model::{CollectionModel, SortOrder}, mongo::i32_to_bson}, entities::potential_articles::PotentialArticle};
-    use super::{BlankCollection, FieldSort};
+    use crate::{config, db::{self, items::Items, model::{CollectionModel, SortOrder}}, entities::potential_articles::PotentialArticle};
+    use super::{BlankCollection, FieldSort, PrimaryID};
 
     #[derive(Clone, Debug, Serialize, Deserialize)]
     struct Test {
@@ -330,6 +328,12 @@ mod tests {
     impl FieldSort<String> for Test {
         fn sort_by_value(&self) -> String {
             "pog".to_string()
+        }
+    }
+
+    impl PrimaryID<String> for Test {
+        fn get_primary_id(&self) -> Option<String> {
+            None
         }
     }
     
@@ -352,11 +356,11 @@ mod tests {
 
         println!("next find_with_limits: {:?}", coll.find_with_limits(
 			"channel_id",
-			i32_to_bson(&vec![1, 2]), 
-			Some(HashMap::from([
+			vec![1, 2], 
+			HashMap::from([
                 (1, 10),
                 (2, 5),
-            ])),
+            ]),
 			10,
 			("create_date", SortOrder::DESC),
         ).await.unwrap());
