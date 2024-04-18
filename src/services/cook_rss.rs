@@ -34,7 +34,7 @@ fn get_schema(link: &str) -> String {
     }
 }
 
-// cook turns a vec of articles into xml using the std rss::ChannelBuilder
+/// cook turns a vec of articles into xml using the std rss::ChannelBuilder
 pub fn cook(link: &str, title: &str, articles: Vec<PotentialArticle>) -> String {
     let mut items = vec![];
     for value in articles.iter() {

@@ -8,8 +8,8 @@ use rocket::response::content::RawXml;
 
 use super::cook_rss::cook;
 
-// return_db_articles fetch a `limit` amount of items from db,
-// then turn them into XML.
+/// return_db_articles fetch a `limit` amount of items from db,
+/// then turn them into XML.
 pub async fn return_db_articles(
     url: &str,
     link: &str,
@@ -30,8 +30,8 @@ pub async fn return_db_articles(
     return RawXml(cook(link, url, latests));
 }
 
-// process_data_and_fetch_items compares fetched articles from bakery against existing ones in DB,
-// then insert those not existing and then returns the latest `limit` number of articles.
+/// process_data_and_fetch_items compares fetched articles from bakery against existing ones in DB,
+/// then insert those not existing and then returns the latest `limit` number of articles.
 pub async fn process_data_and_fetch_items(
     articles: &Vec<PotentialArticle>,
     items_coll: Items<'_, PotentialArticle>,
@@ -72,8 +72,8 @@ pub async fn process_data_and_fetch_items(
         .unwrap_or(vec![])
 }
 
-// should_fetch_items assert if items should be fetched or not,
-// with respect to the update date of the 
+/// should_fetch_items assert if items should be fetched or not,
+/// with respect to the update date of the 
 pub async fn should_fetch_items(
     timers: &BlankCollection<'_, Timer>,
     channel: &str,
