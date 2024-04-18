@@ -11,7 +11,7 @@ pub mod utils;
 pub mod converters;
 pub mod entities;
 
-use handlers::{panya::get_url, feed::get_feed, refresher::post_refresher};
+use handlers::{feed::get_feed, panya::get_url, refresher::post_refresher};
 use rocket::{fairing::AdHoc, Build, Config, Rocket, Route, info};
 
 use utils::now_timestamp_ms;

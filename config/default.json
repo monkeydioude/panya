@@ -2,8 +2,8 @@
     "debug": true,
     "api_path": "http://0.0.0.0:8084",
     "db_path": "mongodb://localhost:27017",
-    "databases": ["channels", "panya"],
+    "databases": ["channels", "panya", "panya-test"],
     "app_name": "Pan-Ya",
-    "bakery_trigger_cooldown": 5,
-    "default_item_per_feed": 10
+    "bakery_trigger_cooldown": 0,
+    "default_item_per_feed": 15
 }

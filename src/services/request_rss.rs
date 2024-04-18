@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 pub async fn request_rss(
   urls: &Vec<String>,
-  global_item_per_feed: i32,
+  global_item_per_feed: i64,
   item_per_feed: &Option<BTreeMap<String, i32>>,
 ) {
   let futures: Vec<_> = urls

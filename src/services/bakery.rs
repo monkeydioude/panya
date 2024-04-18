@@ -11,6 +11,7 @@ impl FieldSort<String> for PotentialArticle {
     }
 }
 
+// get_cookies_from_bakery calls bakery, a website scrapper, and returns the result
 pub async fn get_cookies_from_bakery(api_path: &str, url: &str) -> Option<Vec<PotentialArticle>> {
     let response = reqwest::get(format!("{}/bakery?url={}", api_path, url)).await;
     let raw_data = match response {

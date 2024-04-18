@@ -1,8 +1,6 @@
 use std::collections::BTreeMap;
-
 use rss::{ChannelBuilder, Item};
 use url::Url;
-
 use crate::entities::potential_articles::PotentialArticle;
 
 impl From<PotentialArticle> for Item {
@@ -36,6 +34,7 @@ fn get_schema(link: &str) -> String {
     }
 }
 
+// cook turns a vec of articles into xml using the std rss::ChannelBuilder
 pub fn cook(link: &str, title: &str, articles: Vec<PotentialArticle>) -> String {
     let mut items = vec![];
     for value in articles.iter() {

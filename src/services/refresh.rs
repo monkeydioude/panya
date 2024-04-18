@@ -1,8 +1,6 @@
-use chrono::Utc;
-
 use crate::db::{
     entities::Refresh,
-    model::{BlankCollection, CollectionModel},
+    model::BlankCollection,
 };
 
 pub type Refresher<'a> = BlankCollection<'a, Refresh>;

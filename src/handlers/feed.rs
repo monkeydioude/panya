@@ -1,34 +1,78 @@
-use std::collections::BTreeMap;
 
-use rocket::{response::content::{RawJson}, serde::{json::Json, Deserialize}};
+use std::collections::HashMap;
 
-use crate::{config::Settings, entities::potential_articles::PotentialArticle, services::{cook_rss::cook, request_rss::request_rss}};
+use crate::db::items::Items;
+use crate::db::model::{CollectionModel, SortOrder};
+use crate::entities::potential_articles::PotentialArticle;
+use crate::{config::Settings, db::mongo::Handle};
+use mongodb::bson::doc;
+use rocket::serde::json::Json;
+use rocket::{error, warn};
 
 #[derive(FromForm)]
-struct GetUrlQuery {
-    pub urls: Vec<String>,
+pub struct GetFeedQuery {
+	ids: String,
+	limits: Option<HashMap<i32, i64>>,
 }
 
-#[derive(Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub struct FeedsRequest {
-    pub rss_urls: Option<Vec<String>>,
-    pub html_to_rss_urls: Option<Vec<String>>,
-    pub global_item_per_feed: Option<i32>,
-    pub item_per_feed: Option<BTreeMap<String, i32>>,
-}
-
-#[get("/feed?<query..>", format = "json")]
+#[get("/feed?<query..>")]
 pub async fn get_feed(
-  settings: &rocket::State<Settings>,
-  query: GetUrlQuery,
+	db_handle: &rocket::State<Handle>,
+	settings: &rocket::State<Settings>,
+	query: GetFeedQuery,
 ) -> Json<Vec<PotentialArticle>> {
-  let item_per_feed = 10;
-  if query.urls.is_empty() {
-    warn!("handler::get_feed - no urls found");
-    return Json(vec![]);
-}
-  request_rss(&query.urls, settings.default_item_per_feed, &None);
-  // format!("Received: xml_urls = {:?}, html_to_xml_urls = {:?}, item_per_feed: {}", payload.rss_urls, payload.html_to_rss_urls, item_per_feed)
-  Json(vec![])
-}
+	if query.ids.is_empty() {
+		warn!("handler::get_channels - no ids found");
+		return Json(vec![]);
+	}
+	let ids: Vec<i32> = query.ids
+		.split(",")
+		// convert from String to u32
+		.filter_map(|e| e.trim().parse::<i32>().ok())
+		.collect();
+	let items_coll = match Items::<PotentialArticle>::new(db_handle, "panya") {
+		Ok(c) => c,
+		Err(err) => {
+			error!("{}", err);
+			return Json(vec![]);
+		}
+	};
+	let max_limit = settings.default_item_per_feed;
+	let mut items = items_coll
+		.find_with_limits(
+			"channel_id",
+			ids, 
+			query.limits.unwrap_or_default(),
+			max_limit,
+			("create_date", SortOrder::DESC),
+		)
+		.await
+		.unwrap_or_else(|| vec![]);
+		items.sort_by(|a, b| b.cmp(a));
+		Json(items)
+	}
+	
+	
+	#[cfg(test)]
+	mod tests {
+		use rocket::local::asynchronous::Client;
+		use crate::{config, db};
+		
+		#[rocket::async_test]
+		async fn test_get_channels() {
+			let settings = config::Settings::new().unwrap();
+			let rocket = rocket::build()
+			.mount("/panya", routes![super::get_feed])
+			.manage(db::mongo::get_handle(&settings).await)
+			.manage(settings);
+			let client = Client::untracked(rocket).await.expect("valid rocket instance");
+			
+			// Dispatch a request to the '/hello' route
+			let response = client.get("/panya/channels?ids=1,2,3").dispatch().await;
+			println!("res: {}", response.into_string().await.unwrap());
+			// Check the response status code and body
+			// assert_eq!(response.status(), Status::Ok);
+			// assert_eq!(response.into_string().await.unwrap(), "Hello, world!");
+		}
+	}
+	

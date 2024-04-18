@@ -1,13 +1,17 @@
 use serde::{Deserialize, Serialize};
 use chrono::{TimeZone, Utc};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+use crate::db::model::PrimaryID;
+
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, PartialOrd)]
 pub struct PotentialArticle {
     pub link: String,
     pub img: String,
     pub desc: String,
     #[serde(alias = "date")]
     pub create_date: i64,
+    pub channel_name: Option<String>,
+    pub channel_id: Option<i32>,
 }
 
 impl PotentialArticle {
@@ -37,5 +41,17 @@ impl PotentialArticle {
 
     pub fn some_human_date(&self) -> Option<String> {
         Some(self.human_date())
+    }
+}
+
+impl Ord for PotentialArticle {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.create_date.cmp(&other.create_date)
+    }
+}
+
+impl PrimaryID<i32> for PotentialArticle {
+    fn get_primary_id(&self) -> Option<i32> {
+        self.channel_id
     }
 }
