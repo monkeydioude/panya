@@ -9,7 +9,7 @@ use mongodb::{
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::HashMap, fmt::{Debug, Display}, vec};
 
-use super::mongo::{i32_to_bson, Handle};
+use super::mongo::{to_bson_vec, Handle};
 
 #[derive(Copy, Clone, Debug)]
 pub enum SortOrder {
@@ -50,6 +50,7 @@ struct DocsWrapper<T> {
 }
 
 pub trait CollectionModel<P: PartialEq, T: CollectionModelConstraint<P>> {
+    // insert_many inserts an array of documents into the collection
     async fn insert_many(&self, data: &[T]) -> Result<InsertManyResult, Error> {
         if data.is_empty() {
             return Error::to_result_string("empty input")?;
@@ -61,6 +62,7 @@ pub trait CollectionModel<P: PartialEq, T: CollectionModelConstraint<P>> {
             .map_err(Error::from)
     }
 
+    // find_by_field_values fetch a `limit` number of documents matching a `field`
     async fn find_by_field_values(&self, data: &[T], field: &str, limit: i64) -> Vec<T> {
         let mut in_values = vec![];
         for item in data {
@@ -90,6 +92,8 @@ pub trait CollectionModel<P: PartialEq, T: CollectionModelConstraint<P>> {
         results
     }
 
+    // find returns document matching a `doc`, sorting on a `field` using a `sort` order (SortOrder),
+    // limited to a `limit` number of documents.
     async fn find(
         &self,
         doc: Document,
@@ -127,22 +131,31 @@ pub trait CollectionModel<P: PartialEq, T: CollectionModelConstraint<P>> {
             None => None,
         }
     }
-
+    // find_with_limits allows to use multiple fields to request documents through the `field_in` parameters.
+    // It also allows to define different limit for the different fields used through the `limits_in` parameter.
+    // For example, I want 10 documents matching the field "channel_id": 1,
+    // and 30 documents matching the field "channel_id": 2, ordered DESC by `created_at`:
+    //
+    // find_with_limits("a_field", vec![1, 2], HashMap::from([(1, 10), (2, 30)]), 10, Some("created_at", SortOrder::DESC))
     async fn find_with_limits<L: Eq + PartialEq<P> + Ord + PartialOrd + Sized + Debug + Display>(
         &self,
         field: &str,
         field_in: Vec<i32>,
-        limits: HashMap<L, i64>,
+        limits_in: impl Into<Option<HashMap<L, i64>>>,
         mut max_limit: i64,
         sort_tuple: impl Into<Option<(&str, SortOrder)>>,
     ) -> Option<Vec<T>> {
-        max_limit = limits
+        let mut limits_safe = HashMap::new();
+        if let Some(limits_in_into) = limits_in.into() {
+            limits_safe = limits_in_into;
+            max_limit = limits_safe
             .iter()
             .map(|e| *e.1)
             .max()
             .unwrap_or(max_limit);
+        }
         let mut pipeline = vec![
-            doc! { "$match": { field: { "$in": i32_to_bson(&field_in) } } },
+            doc! { "$match": { field: { "$in": to_bson_vec(&field_in) } } },
             doc! { "$group": {
                 "_id": format!("${}", field),
                 "docs": { "$push": "$$ROOT" }
@@ -171,7 +184,7 @@ pub trait CollectionModel<P: PartialEq, T: CollectionModelConstraint<P>> {
                     Ok(t) => {
                         let limit = t.docs.last()
                             .and_then(|t_item| t_item.get_primary_id())
-                            .and_then(|p_item| limits.iter().find(|el| el.0 == &p_item).map(|l| *l.1))
+                            .and_then(|p_item| limits_safe.iter().find(|el| el.0 == &p_item).map(|l| *l.1))
                             .unwrap_or(max_limit);
                         t.docs.iter().take(limit as usize).for_each(|inner_doc| results.push(inner_doc.clone()))
                     },
@@ -182,7 +195,10 @@ pub trait CollectionModel<P: PartialEq, T: CollectionModelConstraint<P>> {
         }
         Some(results)
     }
-
+    // find_latests returns a `limit` amount of documents
+    // ordered by `sort` (SortOrder) on a `field`.
+    // If `field` is an integer, `after` can be used to fetch
+    // documents that are greater than `field`.
     async fn find_latests(
         &self,
         field: &str,
@@ -235,6 +251,11 @@ pub trait CollectionModel<P: PartialEq, T: CollectionModelConstraint<P>> {
     fn get_diff_collection<C>(&self, coll: &str) -> Option<Collection<C>> {
         Some(self.get_database()?.collection::<C>(coll))
     }
+    // get_next_seq requires a "counters" collection to exist, or writing rights to create it.
+    // It will then try to fetch a document, containing a `seq` field, matching the collection's name as its `_id`.
+    // If does not exist, a new document with the previously mentioned specifics will be created, setting `seq` to `0`.
+    // Then, `seq` will be incremented by 1, and the document updated in the collection.
+    // Finally, the updated `seq` will be returned.
     async fn get_next_seq(&self) -> mongodb::error::Result<i32> {
         let counters = self.get_diff_collection::<Counter>("counters")
             .ok_or(mongodb::error::Error::from(std::io::ErrorKind::NotFound))?;

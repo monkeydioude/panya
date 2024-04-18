@@ -3,10 +3,11 @@ use std::error::Error;
 use crate::db::items::Items;
 use crate::db::entities::Timer;
 use crate::db::model::{BlankCollection, CollectionModel, SortOrder};
+use crate::db::timers::Timers;
 use crate::entities::potential_articles::PotentialArticle;
 use crate::services::bakery;
 use crate::services::cook_rss::cook;
-use crate::services::panya::{process_data_and_fetch_items, should_fetch_items};
+use crate::services::panya::{process_data_and_fetch_items, return_db_articles, should_fetch_items};
 use crate::utils::clean_url;
 use crate::{config::Settings, db::mongo::Handle};
 use mongodb::bson::doc;
@@ -28,21 +29,6 @@ fn handle_error(err: &dyn Error, msg: &str, url: &str)-> RawXml<String> {
     RawXml(cook(url, url, vec![]))
 }
 
-async fn return_db_articles(url: &str, link: &str, limit: i64, items_coll: &Items<'_, PotentialArticle>) -> RawXml<String> {
-    let latests: Vec<PotentialArticle> = items_coll
-        .find_latests(
-            "create_date", 
-            None, 
-            limit, 
-            SortOrder::DESC,
-            doc! {"channel_name": url}
-        )
-        .await
-        .unwrap_or(vec![]);
-
-    return RawXml(cook(link, url, latests));
-}
-
 // /panya?url=
 #[get("/?<query..>")]
 pub async fn get_url(
@@ -56,7 +42,7 @@ pub async fn get_url(
     }
     let url = clean_url(&query.url).unwrap_or(query.url.clone());
     let limit = query.limit.unwrap_or(5);
-    let timers_coll = match BlankCollection::<Timer>::new(handle, "panya", "timers") {
+    let timers_coll = match Timers::new(handle, "panya", "timers") {
         Ok(c) => c,
         Err(err) => return handle_error(&err, "BlankCollection::new - can't open connection to db panya", &url),
     };

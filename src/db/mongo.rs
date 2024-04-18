@@ -37,6 +37,10 @@ pub fn i32_to_bson(vec: &Vec<i32>) -> Vec<Bson> {
     vec.iter().map(|&id| Bson::Int32(id)).collect::<Vec<Bson>>()
 }
 
+pub fn to_bson_vec(vec: &Vec<i32>) -> Vec<Bson> {
+    vec.iter().map(|&id| Bson::from(id)).collect::<Vec<Bson>>()
+}
+
 pub async fn get_handle(settings: &Settings) -> Handle {
     Handle::new(settings).await
 }
@@ -48,5 +52,10 @@ mod tests {
     #[test]
     fn test_i32_to_bson() {
         assert_eq!(i32_to_bson(&vec![1, 2]), vec![Bson::Int32(1), Bson::Int32(2)]);
+    }
+
+    #[test]
+    fn test_to_bson_vec() {
+        assert_eq!(to_bson_vec(&vec![1, 2]), vec![Bson::Int32(1), Bson::Int32(2)]);
     }
 }

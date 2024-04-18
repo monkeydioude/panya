@@ -4,7 +4,34 @@ use crate::{
     }, entities::potential_articles::PotentialArticle, services::vec::RemoveReplaceExisting, utils::now_minus_minutes
 };
 use mongodb::bson::doc;
+use rocket::response::content::RawXml;
 
+use super::cook_rss::cook;
+
+// return_db_articles fetch a `limit` amount of items from db,
+// then turn them into XML.
+pub async fn return_db_articles(
+    url: &str,
+    link: &str,
+    limit: i64,
+    items_coll: &Items<'_, PotentialArticle>,
+) -> RawXml<String> {
+    let latests: Vec<PotentialArticle> = items_coll
+        .find_latests(
+            "create_date", 
+            None, 
+            limit, 
+            SortOrder::DESC,
+            doc! {"channel_name": url}
+        )
+        .await
+        .unwrap_or(vec![]);
+
+    return RawXml(cook(link, url, latests));
+}
+
+// process_data_and_fetch_items compares fetched articles from bakery against existing ones in DB,
+// then insert those not existing and then returns the latest `limit` number of articles.
 pub async fn process_data_and_fetch_items(
     articles: &Vec<PotentialArticle>,
     items_coll: Items<'_, PotentialArticle>,
@@ -16,7 +43,7 @@ pub async fn process_data_and_fetch_items(
     // picks out existing links in db
     let mut to_insert = articles.remove_existing(&existing_links);
 
-    // nothing to insert, move on
+    // something to insert
     if !to_insert.is_empty() {
         let channel_id = match get_channel_id(&items_coll, channel_name).await {
             Ok(r) => r,
@@ -33,15 +60,20 @@ pub async fn process_data_and_fetch_items(
             });
         let _ = items_coll.insert_many(&to_insert, None).await;
     }
-    // returns the wanted number of items
-    articles
-        .replace_existing(&existing_links)
-        .iter()
-        .take(limit as usize)
-        .cloned()
-        .collect()
+    items_coll
+        .find_latests(
+            "create_date", 
+            None, 
+            limit, 
+            SortOrder::DESC,
+            doc! {"channel_name": channel_name}
+        )
+        .await
+        .unwrap_or(vec![])
 }
 
+// should_fetch_items assert if items should be fetched or not,
+// with respect to the update date of the 
 pub async fn should_fetch_items(
     timers: &BlankCollection<'_, Timer>,
     channel: &str,
