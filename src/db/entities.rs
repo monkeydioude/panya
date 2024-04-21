@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct Timer {
     pub channel: String,
     pub update_date: i64,
+    pub time_to_refresh: i64,
 }
 
 impl FieldSort<String> for Timer {

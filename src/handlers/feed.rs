@@ -1,4 +1,3 @@
-
 use std::collections::HashMap;
 
 use crate::db::items::Items;
@@ -11,8 +10,8 @@ use rocket::{error, warn};
 
 #[derive(FromForm)]
 pub struct GetFeedQuery {
-	ids: String,
-	limits: Option<HashMap<i32, i64>>,
+	pub ids: String,
+	pub limits: Option<HashMap<i32, i64>>,
 }
 
 #[get("/feed?<query..>")]

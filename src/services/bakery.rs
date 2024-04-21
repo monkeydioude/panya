@@ -1,15 +1,7 @@
 use rocket::error;
 
 use crate::converters::string::to_articles;
-use crate::db::model::FieldSort;
 use crate::entities::potential_articles::PotentialArticle;
-
-
-impl FieldSort<String> for PotentialArticle {
-    fn sort_by_value(&self) -> String {
-        self.link.clone()
-    }
-}
 
 /// get_cookies_from_bakery calls bakery, a website scrapper, and returns the result
 pub async fn get_cookies_from_bakery(api_path: &str, url: &str) -> Option<Vec<PotentialArticle>> {

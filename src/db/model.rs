@@ -9,7 +9,7 @@ use mongodb::{
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::HashMap, fmt::{Debug, Display}, vec};
 
-use super::mongo::{to_bson_vec, Handle};
+use super::mongo::{db_not_found_err, to_bson_vec, Handle};
 
 #[derive(Copy, Clone, Debug)]
 pub enum SortOrder {
@@ -258,7 +258,7 @@ pub trait CollectionModel<P: PartialEq, T: CollectionModelConstraint<P>> {
     /// Finally, the updated `seq` will be returned.
     async fn get_next_seq(&self) -> mongodb::error::Result<i32> {
         let counters = self.get_diff_collection::<Counter>("counters")
-            .ok_or(mongodb::error::Error::from(std::io::ErrorKind::NotFound))?;
+            .ok_or(db_not_found_err())?;
         let filter = doc! { "_id": self.get_collection_name() };
         let update = doc! {
             "$inc": { "seq": 1 }, 
@@ -272,14 +272,14 @@ pub trait CollectionModel<P: PartialEq, T: CollectionModelConstraint<P>> {
         let result_doc = counters
             .find_one_and_update(filter, update, options)
             .await?
-            .ok_or_else(|| mongodb::error::Error::from(std::io::ErrorKind::NotFound));
+            .ok_or_else(|| db_not_found_err());
 
         result_doc.map(|doc| doc.seq)
     }
 
     async fn get_seq(&self, id: &str) -> mongodb::error::Result<i32> {
         let counters = self.get_diff_collection::<Counter>("counters")
-            .ok_or(mongodb::error::Error::from(std::io::ErrorKind::NotFound))?;
+            .ok_or(db_not_found_err())?;
         let res = counters
             .find_one(doc! {"_id": id}, None)
             .await?;

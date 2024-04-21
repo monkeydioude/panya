@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 use rss::{ChannelBuilder, Item};
-use url::Url;
 use crate::entities::potential_articles::PotentialArticle;
 
 impl From<PotentialArticle> for Item {
@@ -20,16 +19,6 @@ impl From<PotentialArticle> for Item {
             extensions: BTreeMap::new(),
             itunes_ext: None,
             dublin_core_ext: None,
-        }
-    }
-}
-
-fn get_schema(link: &str) -> String {
-    match Url::parse(link) {
-        Ok(parts) => parts.scheme().to_string() + "://",
-        Err(err) => {
-            warn!("could not parse url {}: {}", link, err);
-            "https://".to_string()
         }
     }
 }

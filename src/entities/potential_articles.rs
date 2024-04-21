@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use chrono::{TimeZone, Utc};
 
-use crate::db::model::PrimaryID;
+use crate::db::model::{FieldSort, PrimaryID};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, PartialOrd)]
 pub struct PotentialArticle {
@@ -53,5 +53,11 @@ impl Ord for PotentialArticle {
 impl PrimaryID<i32> for PotentialArticle {
     fn get_primary_id(&self) -> Option<i32> {
         self.channel_id
+    }
+}
+
+impl FieldSort<String> for PotentialArticle {
+    fn sort_by_value(&self) -> String {
+        self.link.clone()
     }
 }

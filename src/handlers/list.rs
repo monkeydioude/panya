@@ -1,5 +1,5 @@
 use std::vec;
-use mongodb::bson::{doc, Bson};
+use mongodb::bson::doc;
 use rocket::serde::json::Json;
 
 use crate::{db::{items::Items, model::{CollectionModel, SortOrder}, mongo::Handle}, entities::potential_articles::PotentialArticle};

@@ -1,7 +1,7 @@
 use crate::{
     db::{
-        entities::Timer, items::{get_channel_id, Items}, model::{BlankCollection, CollectionModel, SortOrder}
-    }, entities::potential_articles::PotentialArticle, services::vec::RemoveReplaceExisting, utils::now_minus_minutes
+        channel::{get_channel_id, Channels}, entities::Timer, items::Items, model::{BlankCollection, CollectionModel, SortOrder}
+    }, entities::{channel::{Channel, SourceType}, potential_articles::PotentialArticle}, services::vec::RemoveReplaceExisting, utils::now_minus_minutes
 };
 use mongodb::bson::doc;
 use rocket::response::content::RawXml;
@@ -35,6 +35,7 @@ pub async fn return_db_articles(
 pub async fn process_data_and_fetch_items(
     articles: &Vec<PotentialArticle>,
     items_coll: Items<'_, PotentialArticle>,
+    channels_coll: Channels<'_, Channel>,
     channel_name: &str,
     limit: i64,
 ) -> Vec<PotentialArticle> {
@@ -43,9 +44,10 @@ pub async fn process_data_and_fetch_items(
     // picks out existing links in db
     let mut to_insert = articles.remove_existing(&existing_links);
 
+
     // something to insert
     if !to_insert.is_empty() {
-        let channel_id = match get_channel_id(&items_coll, channel_name).await {
+        let channel_id = match get_channel_id(&channels_coll, channel_name, SourceType::Bakery).await {
             Ok(r) => r,
             Err(_) => {
                 error!("could not find any channel_id for: {}", channel_name);

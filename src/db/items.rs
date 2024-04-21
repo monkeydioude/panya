@@ -2,7 +2,7 @@ use super::{
     model::{CollectionModel, CollectionModelConstraint},
     mongo::Handle,
 };
-use crate::{entities::potential_articles::PotentialArticle, error::Error};
+use crate::error::Error;
 use mongodb::{bson::doc, results::InsertManyResult, Collection, Database, IndexModel};
 use serde::Serialize;
 use std::fmt::Debug;
@@ -56,16 +56,4 @@ impl<'a, P: PartialEq, T: CollectionModelConstraint<P>> CollectionModel<P, T> fo
     fn get_database(&self) -> Option<&Database> {
         self.handle.database(&self.db_name)
     }
-}
-
-pub async fn get_channel_id(items_coll: &Items<'_, PotentialArticle>, channel_name: &str) -> Result<i32, mongodb::error::Error> {
-    match items_coll
-        .find(doc!{"channel_name": channel_name}, None, 1, None)
-        .await
-        .unwrap_or_default()
-        .pop() {
-            Some(p) => p.channel_id
-                .ok_or_else(|| mongodb::error::Error::from(std::io::ErrorKind::NotFound)),
-            None => items_coll.get_next_seq().await,
-        }
 }

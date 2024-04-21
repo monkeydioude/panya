@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 pub async fn request_rss(
   urls: &Vec<String>,
-  global_item_per_feed: i64,
-  item_per_feed: &Option<BTreeMap<String, i32>>,
+  _global_item_per_feed: i64,
+  _item_per_feed: &Option<BTreeMap<String, i32>>,
 ) {
   let futures: Vec<_> = urls
     .into_iter()
@@ -21,7 +21,6 @@ pub async fn request_rss(
 #[cfg(test)]
 mod tests {
     use super::request_rss;
-    use tokio::test;
 
   #[tokio::test]
   async fn test_i_can_get_rss() {

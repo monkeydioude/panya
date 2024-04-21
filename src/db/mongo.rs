@@ -45,6 +45,10 @@ pub async fn get_handle(settings: &Settings) -> Handle {
     Handle::new(settings).await
 }
 
+pub fn db_not_found_err() -> mongodb::error::Error {
+    mongodb::error::Error::from(std::io::ErrorKind::NotFound)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
