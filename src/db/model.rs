@@ -1,7 +1,7 @@
 use crate::error::Error;
 use futures::{StreamExt, TryStreamExt};
 use mongodb::{
-    bson::{doc, Document},
+    bson::{doc, Bson, Document},
     options::{FindOneAndUpdateOptions, FindOptions},
     results::InsertManyResult,
     Collection, Database,
@@ -90,6 +90,14 @@ pub trait CollectionModel<P: PartialEq, T: CollectionModelConstraint<P>> {
         }
 
         results
+    }
+
+    async fn find_one<F: Sized + Into<Bson>>(&self, field: &str, value: F) -> Option<T> {
+        self.find(doc!{field: value}, None, 1, None)
+            .await
+            .and_then(|res| {
+                res.first().cloned()
+            })
     }
 
     /// find returns document matching a `doc`, sorting on a `field` using a `sort` order (SortOrder),

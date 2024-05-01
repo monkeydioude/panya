@@ -4,19 +4,15 @@ use crate::{
     }, entities::{channel::{Channel, SourceType}, potential_articles::PotentialArticle}, services::vec::RemoveReplaceExisting, utils::now_minus_minutes
 };
 use mongodb::bson::doc;
-use rocket::response::content::RawXml;
-
-use super::cook_rss::cook;
 
 /// return_db_articles fetch a `limit` amount of items from db,
 /// then turn them into XML.
 pub async fn return_db_articles(
     url: &str,
-    link: &str,
     limit: i64,
     items_coll: &Items<'_, PotentialArticle>,
-) -> RawXml<String> {
-    let latests: Vec<PotentialArticle> = items_coll
+) -> Vec<PotentialArticle> {
+    items_coll
         .find_latests(
             "create_date", 
             None, 
@@ -25,9 +21,7 @@ pub async fn return_db_articles(
             doc! {"channel_name": url}
         )
         .await
-        .unwrap_or(vec![]);
-
-    return RawXml(cook(link, url, latests));
+        .unwrap_or(vec![])
 }
 
 /// process_data_and_fetch_items compares fetched articles from bakery against existing ones in DB,
