@@ -15,6 +15,7 @@ use rocket::response::content::RawXml;
 use rocket::serde::json::Json;
 use rocket::{error, warn};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(FromForm)]
 pub struct GetUrlQuery {
@@ -41,6 +42,7 @@ pub async fn get_url(
         warn!("handler::get_url - no url found");
         return RawXml(cook(&query.url, &query.url, vec![]));
     }
+    // println!("{:?}", request);
     let url = clean_url(&query.url).unwrap_or(query.url.clone());
     let limit = query.limit.unwrap_or(5);
     let items_coll = match Items::<PotentialArticle>::new(handle, "panya") {
@@ -53,13 +55,16 @@ pub async fn get_url(
     };
     let items = return_db_articles(&url, limit, &items_coll).await;
     // this is temporary
-    if items.is_empty() {
+    if items.is_empty() 
+        && channels_coll.find_one("name", &url).await.is_none() {
         if let Err(err) = new_with_seq_db(
             &url,
             SourceType::Bakery,
             &channels_coll,
         ).await {
             eprintln!("{}", err);
+        } else {
+            
         }
     }
     RawXml(cook(&url, &query.url, items))
