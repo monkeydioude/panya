@@ -12,14 +12,46 @@ pub mod converters;
 pub mod entities;
 
 use handlers::{feed::get_feed, list::get_list, panya::{get_url, add_url}};
-use rocket::{fairing::AdHoc, Build, Config, Rocket, Route, info};
+use rocket::{fairing::{AdHoc, Fairing, Info, Kind}, Build, Config, Data, Request, Response, Rocket, Route};
 
 use utils::now_timestamp_ms;
+use uuid::Uuid;
 use std::net::Ipv4Addr;
+
+const X_REQUEST_ID_LABEL: &str = "X-Request-ID";
+const NO_X_REQUEST_ID_LABEL: &str = "no_x_request_id";
 
 #[get("/healthcheck")]
 fn healthcheck() -> &'static str {
     "Ok"
+}
+
+struct XRequestIdMiddleware;
+
+#[rocket::async_trait]
+    impl Fairing for XRequestIdMiddleware {
+
+fn info(&self) -> Info {
+        Info {
+            name: "Uuid handler",
+            kind: Kind::Response | Kind::Request,
+        }
+    }
+
+    async fn on_request(&self, req: &mut Request<'_>, _: &mut Data<'_>) {
+        let mut uuid = match req.headers().get(X_REQUEST_ID_LABEL).next() {
+            Some(value) => value.to_string(),
+            None => Uuid::new_v4().to_string(),
+        };
+        if uuid == "" {
+            uuid = NO_X_REQUEST_ID_LABEL.to_string();
+        }
+        req.local_cache(|| uuid);
+    }
+
+    async fn on_response<'r>(&self, req: &'r Request<'_>, response: &mut Response<'r>) {
+        response.set_raw_header(X_REQUEST_ID_LABEL, req.local_cache(|| "".to_string()));
+    }
 }
 
 async fn lezgong(routes: Vec<Route>, port: u16) -> Rocket<Build> {
@@ -44,6 +76,7 @@ async fn lezgong(routes: Vec<Route>, port: u16) -> Rocket<Build> {
         })))
         .manage(db::mongo::get_handle(&settings).await)
         .manage(settings)
+        .attach(XRequestIdMiddleware)
 }
 
 #[launch]
