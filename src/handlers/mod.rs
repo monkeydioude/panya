@@ -1,4 +1,4 @@
 pub mod json;
 pub mod panya;
 pub mod feed;
-pub mod list;
+pub mod channel;

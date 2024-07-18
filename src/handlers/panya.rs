@@ -15,7 +15,6 @@ use rocket::response::content::RawXml;
 use rocket::serde::json::Json;
 use rocket::{error, warn};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(FromForm)]
 pub struct GetUrlQuery {
