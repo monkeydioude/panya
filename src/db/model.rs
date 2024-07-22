@@ -3,7 +3,7 @@ use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{doc, Bson, Document},
     options::{FindOneAndUpdateOptions, FindOptions},
-    results::InsertManyResult,
+    results::{DeleteResult, InsertManyResult},
     Collection, Database,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -49,7 +49,13 @@ struct DocsWrapper<T> {
     docs: Vec<T>,
 }
 
-pub trait CollectionModel<P: PartialEq, T: CollectionModelConstraint<P>> {
+pub trait CollectionModel<P: PartialEq + Into<Bson>, T: CollectionModelConstraint<P>> {
+    async fn delete_one(&self, field: &str, value: P) -> Result<DeleteResult, Error> {
+        self.collection()
+            .delete_one(doc! {field: value}, None)
+            .await
+            .map_err(Error::from)
+    }
     /// insert_many inserts an array of documents into the collection
     async fn insert_many(&self, data: &[T]) -> Result<InsertManyResult, Error> {
         if data.is_empty() {
@@ -312,7 +318,7 @@ pub struct BlankCollection<'a, T: Serialize> {
     db_name: &'a str,
 }
 
-impl<'a, P: PartialEq, T: CollectionModelConstraint<P>> CollectionModel<P, T> for BlankCollection<'a, T> {
+impl<'a, P: PartialEq + Into<mongodb::bson::Bson>, T: CollectionModelConstraint<P>> CollectionModel<P, T> for BlankCollection<'a, T> {
     fn collection(&self) -> &Collection<T> {
         &self.collection
     }

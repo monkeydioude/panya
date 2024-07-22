@@ -7,10 +7,14 @@ use crate::db::model::{FieldSort, PrimaryID};
 pub struct PotentialArticle {
     pub link: String,
     pub img: String,
+    pub title: Option<String>,
+    #[serde(rename(serialize = "description"))]
     pub desc: String,
-    #[serde(alias = "date")]
+    #[serde(alias = "date", rename(serialize = "pubDate"))]
     pub create_date: i64,
+    #[serde(rename(serialize = "channelTitle"))]
     pub channel_name: Option<String>,
+    // #[serde(skip_serializing)]
     pub channel_id: Option<i32>,
 }
 

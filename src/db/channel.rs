@@ -68,7 +68,7 @@ impl<'a> Channels<'a, Channel> {
     }
 }
 
-impl<'a, P: PartialEq, T: CollectionModelConstraint<P>> CollectionModel<P, T> for Channels<'a, T> {
+impl<'a, P: PartialEq + Into<mongodb::bson::Bson>, T: CollectionModelConstraint<P>> CollectionModel<P, T> for Channels<'a, T> {
     fn collection(&self) -> &Collection<T> {
         &self.collection
     }

@@ -11,7 +11,7 @@ pub mod utils;
 pub mod converters;
 pub mod entities;
 
-use handlers::{feed::get_feed, channel::get_channel_list, panya::{get_url, add_url}};
+use handlers::{channel::{add_url, delete_url, get_channel_list}, feed::get_feed, panya::get_url};
 use rocket::{fairing::{AdHoc, Fairing, Info, Kind}, Build, Config, Data, Request, Response, Rocket, Route};
 
 use utils::now_timestamp_ms;
@@ -81,5 +81,5 @@ async fn lezgong(routes: Vec<Route>, port: u16) -> Rocket<Build> {
 
 #[launch]
 async fn launch() -> _ {
-    lezgong(routes![healthcheck, get_url, get_feed, get_channel_list, add_url], 8083).await
+    lezgong(routes![healthcheck, get_url, get_feed, get_channel_list, add_url, delete_url], 8083).await
 }

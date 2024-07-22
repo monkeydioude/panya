@@ -44,7 +44,7 @@ impl<'a, T: CollectionModelConstraint<i32>> Items<'a, T> {
     }
 }
 
-impl<'a, P: PartialEq, T: CollectionModelConstraint<P>> CollectionModel<P, T> for Items<'a, T> {
+impl<'a, P: PartialEq + Into<mongodb::bson::Bson>, T: CollectionModelConstraint<P>> CollectionModel<P, T> for Items<'a, T> {
     fn collection(&self) -> &Collection<T> {
         &self.collection
     }
