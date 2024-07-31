@@ -12,7 +12,7 @@ pub mod services;
 pub mod utils;
 
 use handlers::{
-    channel::{add_url, delete_url, get_channel_list},
+    channel::{add_url, delete_channel, get_channel, get_channel_list, update_channel},
     feed::get_feed,
     healthcheck::healthcheck,
     panya::get_url,
@@ -99,8 +99,10 @@ async fn launch() -> _ {
             get_url,
             get_feed,
             get_channel_list,
+            get_channel,
+            update_channel,
             add_url,
-            delete_url
+            delete_channel
         ],
         8083,
     )

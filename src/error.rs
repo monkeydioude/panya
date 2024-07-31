@@ -17,12 +17,12 @@ impl From<mongodb::error::Error> for Error {
 }
 
 impl Error {
-    pub fn string(str: &str) -> Self {
+    pub fn str(str: &str) -> Self {
         Error(str.to_string())
     }
 
-    pub fn to_result_string<T>(str: &str) -> Result<T, Error> {
-        Err(Self::string(str))
+    pub fn str_to_result<T>(str: &str) -> Result<T, Error> {
+        Err(Self::str(str))
     }
 
     pub fn to_result<T>(&self) -> Result<T, Error> {

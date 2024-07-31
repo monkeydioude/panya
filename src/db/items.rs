@@ -15,7 +15,11 @@ pub struct Items<'a, T: Serialize> {
 }
 
 impl<'a, T: CollectionModelConstraint<i32>> Items<'a, T> {
-    pub async fn insert_many(&self, data: &[T], index: Option<String>) -> Result<InsertManyResult, Error> {
+    pub async fn insert_many(
+        &self,
+        data: &[T],
+        index: Option<String>,
+    ) -> Result<InsertManyResult, Error> {
         let idx = index.unwrap_or_else(|| "create_date".to_string());
         // Works cause we dont store result, nor do we return it.
         // An Err() is returned, if that's the case.
@@ -44,7 +48,9 @@ impl<'a, T: CollectionModelConstraint<i32>> Items<'a, T> {
     }
 }
 
-impl<'a, P: PartialEq + Into<mongodb::bson::Bson>, T: CollectionModelConstraint<P>> CollectionModel<P, T> for Items<'a, T> {
+impl<'a, P: PartialEq + Into<mongodb::bson::Bson> + Clone, T: CollectionModelConstraint<P>>
+    CollectionModel<P, T> for Items<'a, T>
+{
     fn collection(&self) -> &Collection<T> {
         &self.collection
     }

@@ -1,13 +1,17 @@
 use crate::error::Error;
 use futures::{StreamExt, TryStreamExt};
 use mongodb::{
-    bson::{doc, Bson, Document},
+    bson::{doc, to_document, Bson, Document},
     options::{FindOneAndUpdateOptions, FindOptions},
     results::{DeleteResult, InsertManyResult},
     Collection, Database,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{collections::HashMap, fmt::{Debug, Display}, vec};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+    vec,
+};
 
 use super::mongo::{db_not_found_err, to_bson_vec, Handle};
 
@@ -30,12 +34,33 @@ impl From<Option<SortOrder>> for SortOrder {
 }
 
 pub trait CollectionModelConstraint<P: PartialEq>:
-    Serialize + FieldSort<String> + PrimaryID<P> + Debug + Unpin + Send + Sync + DeserializeOwned + Clone
+    Serialize
+    + FieldSort<String>
+    + PrimaryID<P>
+    + Debug
+    + Unpin
+    + Send
+    + Sync
+    + DeserializeOwned
+    + Clone
 {
 }
+
 impl<P: PartialEq, T> CollectionModelConstraint<P> for T where
-    T: Serialize + FieldSort<String> + PrimaryID<P> + Debug + Unpin + Send + Sync + DeserializeOwned + Clone
+    T: Serialize
+        + FieldSort<String>
+        + PrimaryID<P>
+        + Debug
+        + Unpin
+        + Send
+        + Sync
+        + DeserializeOwned
+        + Clone
 {
+}
+
+pub trait Updatable<P: PartialEq, T: CollectionModelConstraint<P>> {
+    fn update(&self, entity: T) -> T;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -49,17 +74,40 @@ struct DocsWrapper<T> {
     docs: Vec<T>,
 }
 
-pub trait CollectionModel<P: PartialEq + Into<Bson>, T: CollectionModelConstraint<P>> {
+pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelConstraint<P>> {
     async fn delete_one(&self, field: &str, value: P) -> Result<DeleteResult, Error> {
         self.collection()
             .delete_one(doc! {field: value}, None)
             .await
             .map_err(Error::from)
     }
+    async fn update_one(
+        &self,
+        field: &str,
+        value: P,
+        updater: impl Updatable<P, T>,
+    ) -> Result<T, Error> {
+        let entity = self
+            .find_one(field, value.clone())
+            .await
+            .ok_or(Error::str("update_one: No result found"))?;
+
+        let updated_entity = updater.update(entity);
+        // Convert the updated entity to a BSON document
+        let update_doc = to_document(&updated_entity).map_err(|e| {
+            warn!("Failed to convert updated entity to document: {}", e);
+            Error::str("Failed to convert entity to document")
+        })?;
+        self.collection()
+            .update_one(doc! {field: value}, doc! {"$set": update_doc}, None)
+            .await
+            .map(|_| updated_entity)
+            .map_err(Error::from)
+    }
     /// insert_many inserts an array of documents into the collection
     async fn insert_many(&self, data: &[T]) -> Result<InsertManyResult, Error> {
         if data.is_empty() {
-            return Error::to_result_string("empty input")?;
+            return Error::str_to_result("empty input")?;
         }
 
         self.collection()
@@ -99,11 +147,9 @@ pub trait CollectionModel<P: PartialEq + Into<Bson>, T: CollectionModelConstrain
     }
 
     async fn find_one<F: Sized + Into<Bson>>(&self, field: &str, value: F) -> Option<T> {
-        self.find(doc!{field: value}, None, 1, None)
+        self.find(doc! {field: value}, None, 1, None)
             .await
-            .and_then(|res| {
-                res.first().cloned()
-            })
+            .and_then(|res| res.first().cloned())
     }
 
     /// find returns document matching a `doc`, sorting on a `field` using a `sort` order (SortOrder),
@@ -162,11 +208,7 @@ pub trait CollectionModel<P: PartialEq + Into<Bson>, T: CollectionModelConstrain
         let mut limits_safe = HashMap::new();
         if let Some(limits_in_into) = limits_in.into() {
             limits_safe = limits_in_into;
-            max_limit = limits_safe
-            .iter()
-            .map(|e| *e.1)
-            .max()
-            .unwrap_or(max_limit);
+            max_limit = limits_safe.iter().map(|e| *e.1).max().unwrap_or(max_limit);
         }
         let mut pipeline = vec![
             doc! { "$match": { field: { "$in": to_bson_vec(&field_in) } } },
@@ -178,16 +220,20 @@ pub trait CollectionModel<P: PartialEq + Into<Bson>, T: CollectionModelConstrain
                 "_id": 0,
                 "link": 1,
                 "docs": { "$slice": ["$docs", max_limit * field_in.len() as i64] }
-            }}
+            }},
         ];
         if let Some((field_name, order)) = sort_tuple.into() {
             pipeline.insert(1, doc! { "$sort": {field_name: order.value()} });
         }
-        let mut cursor = self.collection()
+        let mut cursor = self
+            .collection()
             .aggregate(pipeline, None)
             .await
             .map_err(|err| {
-                warn!( "model::CollectionModel::find_with_limits could not find latest: {}", err);
+                warn!(
+                    "model::CollectionModel::find_with_limits could not find latest: {}",
+                    err
+                );
                 err
             })
             .ok()?;
@@ -232,28 +278,36 @@ pub trait CollectionModel<P: PartialEq + Into<Bson>, T: CollectionModelConstrain
             .build();
         let mut filter_options = match filter.into() {
             Some(d) => d,
-            None => doc!{},
+            None => doc! {},
         };
         let after_into = after.into();
         if after_into.is_some() {
-            filter_options.insert(field, doc! {
-                "$gt": after_into.unwrap(),
-            });
+            filter_options.insert(
+                field,
+                doc! {
+                    "$gt": after_into.unwrap(),
+                },
+            );
         }
 
-        self
-            .collection()
+        self.collection()
             .find(filter_options, find_options)
             .await
             .map_err(|err| {
-                warn!( "model::CollectionModel::find_latests could not find latest: {}", err);
+                warn!(
+                    "model::CollectionModel::find_latests could not find latest: {}",
+                    err
+                );
                 err
             })
             .ok()?
             .try_collect()
             .await
             .map_err(|err| {
-                warn!( "model::CollectionModel::find_latests could collect: {}", err);
+                warn!(
+                    "model::CollectionModel::find_latests could collect: {}",
+                    err
+                );
                 err
             })
             .ok()
@@ -271,11 +325,12 @@ pub trait CollectionModel<P: PartialEq + Into<Bson>, T: CollectionModelConstrain
     /// Then, `seq` will be incremented by 1, and the document updated in the collection.
     /// Finally, the updated `seq` will be returned.
     async fn get_next_seq(&self) -> mongodb::error::Result<i32> {
-        let counters = self.get_diff_collection::<Counter>("counters")
+        let counters = self
+            .get_diff_collection::<Counter>("counters")
             .ok_or(db_not_found_err())?;
         let filter = doc! { "_id": self.get_collection_name() };
         let update = doc! {
-            "$inc": { "seq": 1 }, 
+            "$inc": { "seq": 1 },
             "$setOnInsert": { "_id": self.get_collection_name() }
         };
         let options = FindOneAndUpdateOptions::builder()
@@ -292,11 +347,10 @@ pub trait CollectionModel<P: PartialEq + Into<Bson>, T: CollectionModelConstrain
     }
 
     async fn get_seq(&self, id: &str) -> mongodb::error::Result<i32> {
-        let counters = self.get_diff_collection::<Counter>("counters")
+        let counters = self
+            .get_diff_collection::<Counter>("counters")
             .ok_or(db_not_found_err())?;
-        let res = counters
-            .find_one(doc! {"_id": id}, None)
-            .await?;
+        let res = counters.find_one(doc! {"_id": id}, None).await?;
         match res {
             Some(r) => Ok(r.seq),
             None => self.get_next_seq().await,
@@ -318,7 +372,9 @@ pub struct BlankCollection<'a, T: Serialize> {
     db_name: &'a str,
 }
 
-impl<'a, P: PartialEq + Into<mongodb::bson::Bson>, T: CollectionModelConstraint<P>> CollectionModel<P, T> for BlankCollection<'a, T> {
+impl<'a, P: PartialEq + Into<mongodb::bson::Bson> + Clone, T: CollectionModelConstraint<P>>
+    CollectionModel<P, T> for BlankCollection<'a, T>
+{
     fn collection(&self) -> &Collection<T> {
         &self.collection
     }
@@ -336,7 +392,7 @@ impl<'a, T: CollectionModelConstraint<String>> BlankCollection<'a, T> {
     pub fn new(handle: &'a Handle, db_name: &'a str, collection_name: &str) -> Result<Self, Error> {
         let collection = (match handle.database(db_name) {
             Some(res) => res,
-            None => return Error::to_result_string("no database found"),
+            None => return Error::str_to_result("no database found"),
         })
         .collection::<T>(collection_name);
 
@@ -352,9 +408,17 @@ impl<'a, T: CollectionModelConstraint<String>> BlankCollection<'a, T> {
 mod tests {
     use std::collections::HashMap;
 
-    use serde::{Deserialize, Serialize};
-    use crate::{config, db::{self, items::Items, model::{CollectionModel, SortOrder}}, entities::potential_articles::PotentialArticle};
     use super::{BlankCollection, FieldSort, PrimaryID};
+    use crate::{
+        config,
+        db::{
+            self,
+            items::Items,
+            model::{CollectionModel, SortOrder},
+        },
+        entities::potential_articles::PotentialArticle,
+    };
+    use serde::{Deserialize, Serialize};
 
     #[derive(Clone, Debug, Serialize, Deserialize)]
     struct Test {
@@ -371,7 +435,7 @@ mod tests {
             None
         }
     }
-    
+
     #[rocket::async_test]
     async fn test_get_seq() {
         let settings = config::Settings::new().unwrap();
@@ -379,7 +443,7 @@ mod tests {
         let coll = BlankCollection::<Test>::new(&db_handle, "panya", "test").unwrap();
         // coll.insert_many(&[Test{}]).await.unwrap();
 
-        println!("next sequence: {}", coll.get_next_seq().await.unwrap() );
+        println!("next sequence: {}", coll.get_next_seq().await.unwrap());
     }
 
     #[rocket::async_test]
@@ -389,15 +453,17 @@ mod tests {
         let coll = Items::<PotentialArticle>::new(&db_handle, "panya").unwrap();
         // coll.insert_many(&[Test{}]).await.unwrap();
 
-        println!("next find_with_limits: {:?}", coll.find_with_limits(
-			"channel_id",
-			vec![1, 2], 
-			HashMap::from([
-                (1, 10),
-                (2, 5),
-            ]),
-			10,
-			("create_date", SortOrder::DESC),
-        ).await.unwrap());
+        println!(
+            "next find_with_limits: {:?}",
+            coll.find_with_limits(
+                "channel_id",
+                vec![1, 2],
+                HashMap::from([(1, 10), (2, 5),]),
+                10,
+                ("create_date", SortOrder::DESC),
+            )
+            .await
+            .unwrap()
+        );
     }
 }

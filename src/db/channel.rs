@@ -2,7 +2,10 @@ use super::{
     model::{CollectionModel, CollectionModelConstraint},
     mongo::Handle,
 };
-use crate::{entities::channel::{new_with_seq_db, Channel, SourceType}, error::Error};
+use crate::{
+    entities::channel::{new_with_seq_db, Channel, SourceType},
+    error::Error,
+};
 use chrono::Utc;
 use mongodb::{bson::doc, results::InsertManyResult, Collection, Database, IndexModel};
 use serde::Serialize;
@@ -16,7 +19,11 @@ pub struct Channels<'a, T: Serialize> {
 }
 
 impl<'a> Channels<'a, Channel> {
-    pub async fn insert_many(&self, data: &[Channel], index: Option<String>) -> Result<InsertManyResult, Error> {
+    pub async fn insert_many(
+        &self,
+        data: &[Channel],
+        index: Option<String>,
+    ) -> Result<InsertManyResult, Error> {
         let idx = index.unwrap_or_else(|| "create_date".to_string());
         // Works cause we dont store result, nor do we return it.
         // An Err() is returned, if that's the case.
@@ -38,20 +45,23 @@ impl<'a> Channels<'a, Channel> {
     ) -> Option<()> {
         let mut doc = None;
         if let Some(id) = channel_id.into() {
-            doc = Some(doc!{"id": id});
+            doc = Some(doc! {"id": id});
         } else if let Some(name) = channel_name.into() {
-            doc = Some(doc!{"name": name});
+            doc = Some(doc! {"name": name});
         }
         let uw_doc = doc?;
 
-        self.collection().update_one(
-            uw_doc,
-            doc! {"$set": {
-                "last_refresh": Utc::now().timestamp(),
-            }} , None)
-        .await
-        .ok()
-        .and(Some(()))
+        self.collection()
+            .update_one(
+                uw_doc,
+                doc! {"$set": {
+                    "last_refresh": Utc::now().timestamp(),
+                }},
+                None,
+            )
+            .await
+            .ok()
+            .and(Some(()))
     }
 
     pub fn new(handle: &'a Handle, db_name: &'a str) -> Result<Self, Error> {
@@ -68,7 +78,9 @@ impl<'a> Channels<'a, Channel> {
     }
 }
 
-impl<'a, P: PartialEq + Into<mongodb::bson::Bson>, T: CollectionModelConstraint<P>> CollectionModel<P, T> for Channels<'a, T> {
+impl<'a, P: PartialEq + Into<mongodb::bson::Bson> + Clone, T: CollectionModelConstraint<P>>
+    CollectionModel<P, T> for Channels<'a, T>
+{
     fn collection(&self) -> &Collection<T> {
         &self.collection
     }
@@ -88,15 +100,14 @@ pub async fn get_channel_id(
     source_type: SourceType,
 ) -> Result<i32, Error> {
     match channels_coll
-        .find(doc!{"name": channel_name}, None, 1, None)
+        .find(doc! {"name": channel_name}, None, 1, None)
         .await
         .unwrap_or_default()
-        .pop() {
-            Some(p) => Ok(p.id),
-            None => {
-                new_with_seq_db(channel_name, source_type, channels_coll)
-                    .await
-                    .and_then(|el| Ok(el.id))
-            },
-        }
+        .pop()
+    {
+        Some(p) => Ok(p.id),
+        None => new_with_seq_db(channel_name, source_type, channels_coll)
+            .await
+            .and_then(|el| Ok(el.id)),
+    }
 }
