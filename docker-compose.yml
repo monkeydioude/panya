@@ -9,6 +9,7 @@ services:
     volumes:
       - ./db/logs/:/data/logs/
       - ./db/data/:/data/db
+      - ./scripts/mongo/migrations/:/migrations/
     ports:
       - 27017:27017
     networks:

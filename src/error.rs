@@ -1,4 +1,9 @@
-use std::fmt::Display;
+use rocket::{
+    http::{ContentType, Status},
+    response::{self, Responder},
+    Request, Response,
+};
+use std::{fmt::Display, io::Cursor};
 use thiserror::Error;
 
 #[derive(Debug, Error, Responder, Clone)]
@@ -16,6 +21,12 @@ impl From<mongodb::error::Error> for Error {
     }
 }
 
+impl From<reqwest::Error> for Error {
+    fn from(value: reqwest::Error) -> Self {
+        Error(value.to_string())
+    }
+}
+
 impl Error {
     pub fn str(str: &str) -> Self {
         Error(str.to_string())
@@ -27,5 +38,46 @@ impl Error {
 
     pub fn to_result<T>(&self) -> Result<T, Error> {
         Err(self.clone())
+    }
+}
+
+impl From<String> for Error {
+    fn from(value: String) -> Self {
+        Error(value)
+    }
+}
+
+pub enum HTTPError {
+    BadRequest(Error),
+    InternalServerError(Error),
+}
+
+impl HTTPError {
+    fn get_http_status(&self) -> Status {
+        match self {
+            HTTPError::BadRequest(_) => Status::BadRequest,
+            HTTPError::InternalServerError(_) => Status::InternalServerError,
+            // _ => Status::BadRequest,
+        }
+    }
+
+    fn get_value(&self) -> Error {
+        match self {
+            HTTPError::BadRequest(v) => v.clone(),
+            HTTPError::InternalServerError(v) => v.clone(),
+        }
+    }
+}
+
+impl<'r> Responder<'r, 'static> for HTTPError {
+    fn respond_to(self, _: &'r Request<'_>) -> response::Result<'static> {
+        Response::build()
+            .status(self.get_http_status())
+            .header(ContentType::JSON)
+            .sized_body(
+                self.get_value().to_string().len(),
+                Cursor::new(self.get_value().to_string()),
+            )
+            .ok()
     }
 }

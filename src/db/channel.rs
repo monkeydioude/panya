@@ -2,10 +2,7 @@ use super::{
     model::{CollectionModel, CollectionModelConstraint},
     mongo::Handle,
 };
-use crate::{
-    entities::channel::{new_with_seq_db, Channel, SourceType},
-    error::Error,
-};
+use crate::{entities::channel::Channel, error::Error};
 use chrono::Utc;
 use mongodb::{bson::doc, results::InsertManyResult, Collection, Database, IndexModel};
 use serde::Serialize;
@@ -91,23 +88,5 @@ impl<'a, P: PartialEq + Into<mongodb::bson::Bson> + Clone, T: CollectionModelCon
 
     fn get_database(&self) -> Option<&Database> {
         self.handle.database(&self.db_name)
-    }
-}
-
-pub async fn get_channel_id(
-    channels_coll: &Channels<'_, Channel>,
-    channel_name: &str,
-    source_type: SourceType,
-) -> Result<i32, Error> {
-    match channels_coll
-        .find(doc! {"name": channel_name}, None, 1, None)
-        .await
-        .unwrap_or_default()
-        .pop()
-    {
-        Some(p) => Ok(p.id),
-        None => new_with_seq_db(channel_name, source_type, channels_coll)
-            .await
-            .and_then(|el| Ok(el.id)),
     }
 }

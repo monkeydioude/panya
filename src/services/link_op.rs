@@ -12,3 +12,13 @@ impl HostStr for String {
         }
     }
 }
+
+pub fn trim_link(link: &str) -> &str {
+    match link
+        .strip_prefix("http://")
+        .or(link.strip_prefix("https://"))
+    {
+        Some(res) => res,
+        None => link,
+    }
+}

@@ -1,6 +1,8 @@
 use crate::db::model::Updatable;
 use crate::entities::channel::{new_with_seq_db, Channel, SourceType};
-use crate::error::Error;
+use crate::error::{Error, HTTPError};
+use crate::services::channels::find_out_source_type;
+use crate::services::link_op::trim_link;
 use mongodb::bson::doc;
 use rocket::serde::json::Json;
 use serde::{Deserialize, Serialize};
@@ -13,7 +15,10 @@ use crate::db::{
 
 #[derive(Deserialize, Serialize)]
 pub struct AddChannel {
+    channel_url: String,
+    #[serde(skip_deserializing)]
     channel_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     source_type: Option<SourceType>,
     #[serde(skip_deserializing)]
     channel_id: i32,
@@ -54,53 +59,41 @@ pub async fn get_channel_list(
     Ok(Json(channels))
 }
 
-async fn find_out_source_type(channel_name: &str) -> SourceType {
-    let response = match reqwest::get(channel_name).await {
-        Ok(res) => res,
-        Err(err) => {
-            warn!("find_out_source_type: error: {}", err);
-            return SourceType::Other;
-        }
-    };
-    let content_type = match response.headers().get("content-type") {
-        Some(header) => header.to_str().unwrap_or_default(),
-        None => "",
-    };
-    if content_type.find("application/xml").is_some() {
-        return SourceType::RSSFeed;
-    }
-    SourceType::Other
-}
-
 // /panya/channel
 #[post("/channel", format = "json", data = "<add_channel>")]
 pub async fn add_url(
     handle: &rocket::State<Handle>,
     add_channel: Json<AddChannel>,
-) -> Result<Json<AddChannel>, Error> {
-    let channels_coll = Channels::new(handle, "panya")?;
+) -> Result<Json<AddChannel>, HTTPError> {
+    let channels_coll =
+        Channels::new(handle, "panya").map_err(|err| HTTPError::InternalServerError(err))?;
+    let channel_name = trim_link(&add_channel.channel_url);
+    let mut channel_opt = channels_coll.find_one("name", &channel_name).await;
+    let url = &add_channel.channel_url;
     let source_type = match add_channel.source_type {
         Some(res) => res,
-        None => find_out_source_type(&add_channel.channel_name).await,
+        None => match find_out_source_type(url).await {
+            Ok(res) => res,
+            Err(err) => return Err(HTTPError::BadRequest(err)),
+        },
     };
-    let mut channel_opt = channels_coll
-        .find_one("name", &add_channel.channel_name)
-        .await;
+
     if channel_opt.is_none() {
-        channel_opt = new_with_seq_db(&add_channel.channel_name, source_type, &channels_coll)
+        channel_opt = new_with_seq_db(&channel_name, url, source_type, &channels_coll)
             .await
             .ok();
     }
 
     channel_opt
         .ok_or_else(|| {
-            Error::str(&format!(
+            HTTPError::InternalServerError(Error::str(&format!(
                 "error adding the channel: {}",
-                add_channel.channel_name
-            ))
+                add_channel.channel_url
+            )))
         })
         .and_then(|c| {
             Ok(Json(AddChannel {
+                channel_url: c.url,
                 channel_name: c.name,
                 source_type: Some(c.source_type),
                 channel_id: c.id,
