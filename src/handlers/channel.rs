@@ -1,7 +1,9 @@
+use crate::config::Settings;
 use crate::db::model::Updatable;
 use crate::entities::channel::{new_with_seq_db, Channel, SourceType};
 use crate::error::{Error, HTTPError};
 use crate::services::channels::find_out_source_type;
+use crate::services::grpc::jwt_status;
 use crate::services::link_op::trim_link;
 use mongodb::bson::doc;
 use rocket::serde::json::Json;
@@ -12,6 +14,8 @@ use crate::db::{
     model::{CollectionModel, SortOrder},
     mongo::Handle,
 };
+
+use super::Token;
 
 #[derive(Deserialize, Serialize)]
 pub struct AddChannel {
@@ -51,7 +55,17 @@ impl Updatable<i32, Channel> for UpdateChannel {
 #[get("/channels")]
 pub async fn get_channel_list(
     db_handle: &rocket::State<Handle>,
+    settings: &rocket::State<Settings>,
+    token: Token,
 ) -> Result<Json<Vec<Channel>>, Error> {
+    if let Err(err) = jwt_status(
+        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
+        &token.0,
+    )
+    .await
+    {
+        return Err(Error::from(err));
+    }
     let channels = Channels::new(db_handle, "panya")?
         .find(doc! {}, None, None, SortOrder::ASC)
         .await
@@ -64,7 +78,17 @@ pub async fn get_channel_list(
 pub async fn add_url(
     handle: &rocket::State<Handle>,
     add_channel: Json<AddChannel>,
+    settings: &rocket::State<Settings>,
+    token: Token,
 ) -> Result<Json<AddChannel>, HTTPError> {
+    if let Err(err) = jwt_status(
+        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
+        &token.0,
+    )
+    .await
+    {
+        return Err(HTTPError::Unauthorized(Error::from(err)));
+    }
     let channels_coll =
         Channels::new(handle, "panya").map_err(|err| HTTPError::InternalServerError(err))?;
     let channel_name = trim_link(&add_channel.channel_url);
@@ -79,7 +103,7 @@ pub async fn add_url(
     };
 
     if channel_opt.is_none() {
-        channel_opt = new_with_seq_db(&channel_name, url, source_type, &channels_coll)
+        channel_opt = new_with_seq_db(&channel_name, url, source_type, &channels_coll, &settings)
             .await
             .ok();
     }
@@ -108,7 +132,17 @@ pub async fn update_channel(
     handle: &rocket::State<Handle>,
     id: i32,
     update_channel: Json<UpdateChannel>,
+    settings: &rocket::State<Settings>,
+    token: Token,
 ) -> Result<Json<Channel>, Error> {
+    if let Err(err) = jwt_status(
+        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
+        &token.0,
+    )
+    .await
+    {
+        return Err(Error::from(err));
+    }
     Channels::new(handle, "panya")?
         .update_one("id", id, update_channel.into_inner())
         .await
@@ -117,7 +151,20 @@ pub async fn update_channel(
 
 // /panya/channel
 #[get("/channel/<id>")]
-pub async fn get_channel(handle: &rocket::State<Handle>, id: i32) -> Result<Json<Channel>, Error> {
+pub async fn get_channel(
+    handle: &rocket::State<Handle>,
+    id: i32,
+    settings: &rocket::State<Settings>,
+    token: Token,
+) -> Result<Json<Channel>, Error> {
+    if let Err(err) = jwt_status(
+        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
+        &token.0,
+    )
+    .await
+    {
+        return Err(Error::from(err));
+    }
     let channels_coll = Channels::new(handle, "panya")?;
     Ok(Json(
         channels_coll
@@ -129,7 +176,20 @@ pub async fn get_channel(handle: &rocket::State<Handle>, id: i32) -> Result<Json
 
 // /panya/channel
 #[delete("/channel/<id>")]
-pub async fn delete_channel(handle: &rocket::State<Handle>, id: i32) -> Result<String, Error> {
+pub async fn delete_channel(
+    handle: &rocket::State<Handle>,
+    id: i32,
+    settings: &rocket::State<Settings>,
+    token: Token,
+) -> Result<String, Error> {
+    if let Err(err) = jwt_status(
+        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
+        &token.0,
+    )
+    .await
+    {
+        return Err(Error::from(err));
+    }
     let channels_coll = Channels::new(handle, "panya")?;
     channels_coll
         .delete_one("id", id)

@@ -93,6 +93,14 @@ async fn lezgong(routes: Vec<Route>, port: u16) -> Rocket<Build> {
 
 #[launch]
 async fn launch() -> _ {
+    // let mut client = AuthClient::connect("http://[::]:9100").await.unwrap();
+    // let request = tonic::Request::new(UserRequest {
+    //     login: "test@test.com".to_string(),
+    //     password: "test".to_string(),
+    // });
+
+    // let response = client.login(request).await.unwrap();
+    // println!("{:?}", response);
     lezgong(
         routes![
             healthcheck,

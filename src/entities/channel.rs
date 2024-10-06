@@ -4,6 +4,7 @@ use serde::{
 };
 
 use crate::{
+    config::Settings,
     db::{
         channel::Channels,
         model::{CollectionModel, FieldSort, PrimaryID},
@@ -87,15 +88,15 @@ impl FieldSort<String> for Channel {
 }
 
 impl Channel {
-    pub fn new(name: &str, url: &str, source: SourceType) -> Self {
+    pub fn new(name: &str, url: &str, source: SourceType, base_refresh_frequency: i32) -> Self {
         Channel {
             id: 0,
             url: url.to_string(),
             name: name.to_string(),
             last_refresh: 0,
             last_successful_refresh: Some(0),
-            refresh_frequency: 2000,
-            base_refresh_frequency: Some(2000),
+            refresh_frequency: base_refresh_frequency,
+            base_refresh_frequency: Some(base_refresh_frequency),
             source_type: source,
             weight: 1.,
         }
@@ -107,8 +108,9 @@ pub async fn new_with_seq_db(
     url: &str,
     source: SourceType,
     channels_coll: &Channels<'_, Channel>,
+    settings: &Settings,
 ) -> Result<Channel, Error> {
-    let mut channel = Channel::new(name, url, source);
+    let mut channel = Channel::new(name, url, source, settings.base_refresh_frequency);
     channel.id = channels_coll.get_next_seq().await?;
     channels_coll
         .insert_many(&[channel.clone()], Some("id".to_string()))

@@ -11,6 +11,8 @@ pub struct Settings {
     pub app_name: String,
     pub bakery_trigger_cooldown: i64,
     pub default_item_per_feed: i64,
+    pub base_refresh_frequency: i32,
+    pub identity_server_addr: String,
 }
 
 // #[derive(Debug, Deserialize)]

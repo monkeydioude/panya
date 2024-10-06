@@ -3,10 +3,14 @@ use std::collections::HashMap;
 use crate::db::items::Items;
 use crate::db::model::{CollectionModel, SortOrder};
 use crate::entities::potential_articles::PotentialArticle;
+use crate::error::{Error, HTTPError};
+use crate::services::grpc::jwt_status;
 use crate::{config::Settings, db::mongo::Handle};
 use mongodb::bson::doc;
 use rocket::serde::json::Json;
 use rocket::{error, warn};
+
+use super::Token;
 
 #[derive(FromForm)]
 pub struct GetFeedQuery {
@@ -19,10 +23,19 @@ pub async fn get_feed(
     db_handle: &rocket::State<Handle>,
     settings: &rocket::State<Settings>,
     query: GetFeedQuery,
-) -> Json<Vec<PotentialArticle>> {
+    token: Token,
+) -> Result<Json<Vec<PotentialArticle>>, HTTPError> {
+    if let Err(err) = jwt_status(
+        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
+        &token.0,
+    )
+    .await
+    {
+        return Err(HTTPError::Unauthorized(Error::from(err)));
+    }
     if query.ids.is_empty() {
         warn!("handler::get_channels - no ids found");
-        return Json(vec![]);
+        return Ok(Json(vec![]));
     }
     let ids: Vec<i32> = query
         .ids
@@ -34,7 +47,7 @@ pub async fn get_feed(
         Ok(c) => c,
         Err(err) => {
             error!("{}", err);
-            return Json(vec![]);
+            return Ok(Json(vec![]));
         }
     };
     let max_limit = settings.default_item_per_feed;
@@ -49,7 +62,7 @@ pub async fn get_feed(
         .await
         .unwrap_or_else(|| vec![]);
     items.sort_by(|a, b| b.cmp(a));
-    Json(items)
+    Ok(Json(items))
 }
 
 #[cfg(test)]

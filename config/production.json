@@ -1,5 +1,8 @@
 {
     "debug": true,
     "api_path": "http://localhost:8082",
-    "default_item_per_feed": 10
+    "default_item_per_feed": 10,
+    "base_refresh_frequency": 900000,
+    "base_refresh_frequency_min_help": 15,
+    "identity_server_addr": "http://[::]:9100"
 }

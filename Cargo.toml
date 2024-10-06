@@ -7,9 +7,10 @@ edition = "2021"
 name = "panya"
 path = "src/main.rs"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+tonic = "0.12"
+goauth_rpc_client = { git = "ssh://git@github.com/monkeydioude/GOAuTh.git" }
+# goauth_rpc_client = { path = "/Users/mkd/work/calq/GOAuTh/proto/rust" }
 mongodb = "2.7.0"
 chrono = "0.4.31"
 thiserror = "1.0.49"

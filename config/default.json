@@ -2,8 +2,15 @@
     "debug": true,
     "api_path": "http://0.0.0.0:8084",
     "db_path": "mongodb://localhost:27017",
-    "databases": ["channels", "panya", "panya-test"],
+    "databases": [
+        "channels",
+        "panya",
+        "panya-test"
+    ],
     "app_name": "Pan-Ya",
     "bakery_trigger_cooldown": 5,
-    "default_item_per_feed": 15
+    "default_item_per_feed": 15,
+    "base_refresh_frequency": 60000,
+    "base_refresh_frequency_min_help": 1,
+    "identity_server_addr": "http://[::]:9100"
 }

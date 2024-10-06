@@ -3,7 +3,7 @@ use rocket::{
     response::{self, Responder},
     Request, Response,
 };
-use std::{fmt::Display, io::Cursor};
+use std::{error::Error as stdErr, fmt::Display, io::Cursor};
 use thiserror::Error;
 
 #[derive(Debug, Error, Responder, Clone)]
@@ -47,8 +47,15 @@ impl From<String> for Error {
     }
 }
 
+impl From<Box<dyn stdErr>> for Error {
+    fn from(value: Box<dyn stdErr>) -> Self {
+        Error(value.to_string())
+    }
+}
+
 pub enum HTTPError {
     BadRequest(Error),
+    Unauthorized(Error),
     InternalServerError(Error),
 }
 
@@ -56,6 +63,7 @@ impl HTTPError {
     fn get_http_status(&self) -> Status {
         match self {
             HTTPError::BadRequest(_) => Status::BadRequest,
+            HTTPError::Unauthorized(_) => Status::Unauthorized,
             HTTPError::InternalServerError(_) => Status::InternalServerError,
             // _ => Status::BadRequest,
         }
@@ -64,6 +72,7 @@ impl HTTPError {
     fn get_value(&self) -> Error {
         match self {
             HTTPError::BadRequest(v) => v.clone(),
+            HTTPError::Unauthorized(v) => v.clone(),
             HTTPError::InternalServerError(v) => v.clone(),
         }
     }

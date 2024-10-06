@@ -1,5 +1,6 @@
 use std::error::Error as StdError;
 
+use crate::config::Settings;
 use crate::db::channel::Channels;
 use crate::db::items::Items;
 use crate::db::model::CollectionModel;
@@ -7,11 +8,14 @@ use crate::db::mongo::Handle;
 use crate::entities::channel::{new_with_seq_db, SourceType};
 use crate::entities::potential_articles::PotentialArticle;
 use crate::services::cook_rss::cook;
+use crate::services::grpc::jwt_status;
 use crate::services::panya::return_db_articles;
 use crate::utils::clean_url;
 use mongodb::bson::doc;
 use rocket::response::content::RawXml;
 use rocket::{error, warn};
+
+use super::Token;
 
 #[derive(FromForm)]
 pub struct GetUrlQuery {
@@ -26,7 +30,20 @@ fn handle_error(err: &dyn StdError, msg: &str, url: &str) -> RawXml<String> {
 
 // /panya?url=
 #[get("/?<query..>")]
-pub async fn get_url(handle: &rocket::State<Handle>, query: GetUrlQuery) -> RawXml<String> {
+pub async fn get_url(
+    handle: &rocket::State<Handle>,
+    settings: &rocket::State<Settings>,
+    query: GetUrlQuery,
+    token: Token,
+) -> RawXml<String> {
+    if let Err(err) = jwt_status(
+        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
+        &token.0,
+    )
+    .await
+    {
+        return RawXml(err.to_string());
+    }
     if query.url.is_empty() {
         warn!("handler::get_url - no url found");
         return RawXml(cook(&query.url, &query.url, vec![]));
@@ -54,7 +71,9 @@ pub async fn get_url(handle: &rocket::State<Handle>, query: GetUrlQuery) -> RawX
     let items = return_db_articles(&name, limit, &items_coll).await;
     // this is temporary
     if items.is_empty() && channels_coll.find_one("name", url).await.is_none() {
-        if let Err(err) = new_with_seq_db(&name, url, SourceType::Bakery, &channels_coll).await {
+        if let Err(err) =
+            new_with_seq_db(&name, url, SourceType::Bakery, &channels_coll, &settings).await
+        {
             eprintln!("{}", err);
         } else {
         }

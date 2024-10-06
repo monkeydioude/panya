@@ -32,7 +32,7 @@ start:
 
 .PHONY: watch
 watch:
-	cargo watch $(CARGO_WATCH_IGNORES) -x 'run'
+	RUST_BACKTRACE=1 cargo watch $(CARGO_WATCH_IGNORES) -x 'run'
 
 .PHONY: setup
 setup:
