@@ -33,6 +33,8 @@ pub struct AddChannel {
 #[derive(Deserialize, Serialize)]
 pub struct UpdateChannel {
     #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     source_type: Option<SourceType>,
     #[serde(skip_serializing_if = "Option::is_none")]
     refresh_frequency: Option<i32>,
@@ -47,6 +49,9 @@ impl Updatable<i32, Channel> for UpdateChannel {
         }
         if let Some(refresh_frequency) = self.refresh_frequency {
             new.refresh_frequency = refresh_frequency;
+        }
+        if let Some(name) = &self.name {
+            new.name = name.clone();
         }
         new
     }
