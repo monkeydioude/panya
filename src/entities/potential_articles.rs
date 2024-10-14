@@ -37,11 +37,14 @@ impl PotentialArticle {
     }
 
     pub fn human_date(&self) -> String {
-        Utc.timestamp_opt(self.create_date, 0)
-            .single()
-            .unwrap_or(Utc::now())
-            .format("%Y-%m-%d %H:%M:%S")
-            .to_string()
+        Utc.timestamp_opt(
+            self.create_date / 1000,
+            self.create_date as u32 % 1000 * 1000000,
+        )
+        .single()
+        .unwrap_or(Utc::now())
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string()
     }
 
     pub fn some_human_date(&self) -> Option<String> {
