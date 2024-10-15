@@ -16,8 +16,6 @@ pub async fn jwt_status(
         Ok(req)
     });
 
-    // let response = client.status(Empty {}).await?;
-
     let request = tonic::Request::new(Empty {});
     let response = client.status(request).await?;
     let inner_res = response.into_inner();
