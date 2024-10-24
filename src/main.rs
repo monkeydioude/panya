@@ -11,6 +11,7 @@ pub mod handlers;
 pub mod services;
 pub mod utils;
 
+use chrono::Utc;
 use handlers::{
     channel::{add_url, delete_channel, get_channel, get_channel_list, update_channel},
     feed::get_feed,
@@ -48,11 +49,21 @@ impl Fairing for XRequestIdMiddleware {
         if uuid == "" {
             uuid = NO_X_REQUEST_ID_LABEL.to_string();
         }
-        req.local_cache(|| uuid);
+        req.local_cache(|| (uuid, Utc::now().timestamp_micros()));
     }
 
     async fn on_response<'r>(&self, req: &'r Request<'_>, response: &mut Response<'r>) {
-        response.set_raw_header(X_REQUEST_ID_LABEL, req.local_cache(|| "".to_string()));
+        let cache = req.local_cache(|| ("".to_string(), Utc::now().timestamp_micros()));
+        response.set_raw_header(X_REQUEST_ID_LABEL, cache.0.clone());
+        let time = Utc::now().timestamp_micros() - cache.1;
+        eprintln!(
+            "[INFO] ({}): {} {} in {}.{}ms",
+            cache.0,
+            req.uri().path(),
+            response.status().code,
+            time / 1_000,
+            time,
+        );
     }
 }
 
