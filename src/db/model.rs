@@ -211,7 +211,11 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
             max_limit = limits_safe.iter().map(|e| *e.1).max().unwrap_or(max_limit);
         }
         let mut pipeline = vec![
-            doc! { "$match": { field: { "$in": to_bson_vec(&field_in) } } },
+            doc! { "$match": {
+                field: {
+                    "$in": to_bson_vec(&field_in)
+                },
+            } },
             doc! { "$group": {
                 "_id": format!("${}", field),
                 "docs": { "$push": "$$ROOT" }

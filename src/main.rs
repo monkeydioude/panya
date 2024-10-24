@@ -11,7 +11,6 @@ pub mod handlers;
 pub mod services;
 pub mod utils;
 
-use chrono::Utc;
 use handlers::{
     channel::{add_url, delete_channel, get_channel, get_channel_list, update_channel},
     feed::get_feed,
@@ -49,21 +48,12 @@ impl Fairing for XRequestIdMiddleware {
         if uuid == "" {
             uuid = NO_X_REQUEST_ID_LABEL.to_string();
         }
-        req.local_cache(|| (uuid, Utc::now().timestamp_micros()));
+        req.local_cache(|| uuid);
     }
 
     async fn on_response<'r>(&self, req: &'r Request<'_>, response: &mut Response<'r>) {
-        let cache = req.local_cache(|| ("".to_string(), Utc::now().timestamp_micros()));
-        response.set_raw_header(X_REQUEST_ID_LABEL, cache.0.clone());
-        let time = Utc::now().timestamp_micros() - cache.1;
-        eprintln!(
-            "[INFO] ({}): {} {} in {}.{}ms",
-            cache.0,
-            req.uri().path(),
-            response.status().code,
-            time / 1_000,
-            time,
-        );
+        let uuid = req.local_cache(|| "".to_string());
+        response.set_raw_header(X_REQUEST_ID_LABEL, uuid);
     }
 }
 
@@ -80,26 +70,29 @@ async fn lezgong(routes: Vec<Route>, port: u16) -> Rocket<Build> {
             ..Config::default()
         })
         .mount("/panya", routes)
+        .manage(db::mongo::get_handle(&settings).await)
+        .manage(settings)
+        .attach(XRequestIdMiddleware)
         .attach(AdHoc::on_request("time_before", |req, _| {
             Box::pin(async move {
-                req.local_cache(|| now_timestamp_ms());
+                let cache = req.local_cache(|| "".to_string());
+                req.local_cache(|| (cache.clone(), now_timestamp_ms()));
             })
         }))
         .attach(AdHoc::on_response("time_after", |req, res| {
             Box::pin(async move {
-                let time = req.local_cache(|| 0 as u128);
+                let cache = req.local_cache(|| ("".to_string(), 0 as u128));
+                let time = now_timestamp_ms() - cache.1;
                 info!(
-                    "request: {:?}\nresponse: {:?}\nstatus: {}\nexec time: {:}",
-                    req.uri(),
-                    res,
-                    res.status(),
-                    now_timestamp_ms() - time
+                    "({}): {} {} in {}.{}ms",
+                    cache.0,
+                    req.uri().path(),
+                    res.status().code,
+                    time / 1_000,
+                    time,
                 );
             })
         }))
-        .manage(db::mongo::get_handle(&settings).await)
-        .manage(settings)
-        .attach(XRequestIdMiddleware)
 }
 
 #[launch]

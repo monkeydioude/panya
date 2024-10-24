@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{entities::channel::Channel, error::Error};
 use chrono::Utc;
-use mongodb::{bson::doc, results::InsertManyResult, Collection, Database, IndexModel};
+use mongodb::{bson::doc, results::InsertManyResult, Collection, Database};
 use serde::Serialize;
 use std::fmt::Debug;
 
@@ -19,15 +19,15 @@ impl<'a> Channels<'a, Channel> {
     pub async fn insert_many(
         &self,
         data: &[Channel],
-        index: Option<String>,
+        _: Option<String>,
     ) -> Result<InsertManyResult, Error> {
-        let idx = index.unwrap_or_else(|| "create_date".to_string());
-        // Works cause we dont store result, nor do we return it.
-        // An Err() is returned, if that's the case.
-        self.collection()
-            // Oftenly creating new collectionm therefore index
-            .create_index(IndexModel::builder().keys(doc! {idx: -1}).build(), None)
-            .await?;
+        // let idx = index.unwrap_or_else(|| "create_date".to_string());
+        // // Works cause we dont store result, nor do we return it.
+        // // An Err() is returned, if that's the case.
+        // self.collection()
+        //     // Oftenly creating new collectionm therefore index
+        //     .create_index(IndexModel::builder().keys(doc! {idx: -1}).build(), None)
+        //     .await?;
         CollectionModel::<i32, Channel>::insert_many(self, data).await
     }
 

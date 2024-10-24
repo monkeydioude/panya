@@ -5,12 +5,13 @@ use crate::db::model::{CollectionModel, SortOrder};
 use crate::entities::potential_articles::PotentialArticle;
 use crate::error::{Error, HTTPError};
 use crate::services::grpc::jwt_status;
+use crate::utils::now_timestamp_ms;
 use crate::{config::Settings, db::mongo::Handle};
 use mongodb::bson::doc;
 use rocket::serde::json::Json;
 use rocket::{error, warn};
 
-use super::Token;
+use super::{Token, XQueryID};
 
 #[derive(FromForm)]
 pub struct GetFeedQuery {
@@ -24,6 +25,7 @@ pub async fn get_feed(
     settings: &rocket::State<Settings>,
     query: GetFeedQuery,
     token: Token,
+    uuid: XQueryID,
 ) -> Result<Json<Vec<PotentialArticle>>, HTTPError> {
     if let Err(err) = jwt_status(
         Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
@@ -51,6 +53,7 @@ pub async fn get_feed(
         }
     };
     let max_limit = settings.default_item_per_feed;
+    let time_bfore = now_timestamp_ms();
     let mut items = items_coll
         .find_with_limits(
             "channel_id",
@@ -61,6 +64,11 @@ pub async fn get_feed(
         )
         .await
         .unwrap_or_else(|| vec![]);
+    info!(
+        "({}): time for query: {}ms",
+        uuid.0,
+        now_timestamp_ms() - time_bfore
+    );
     items.sort_by(|a, b| b.cmp(a));
     Ok(Json(items))
 }
