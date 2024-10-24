@@ -10,7 +10,7 @@
     "app_name": "Pan-Ya",
     "bakery_trigger_cooldown": 5,
     "default_item_per_feed": 15,
-    "base_refresh_frequency": 60000,
-    "base_refresh_frequency_min_help": 1,
+    "base_refresh_frequency": 300000,
+    "base_refresh_frequency_min_help": 5,
     "identity_server_addr": "http://[::]:9100"
 }

@@ -1,8 +1,5 @@
 const db = connect("mongodb://localhost:27017/panya");
 
-
-
-
 // Perform operations on the collection
 const channel_ids = db.channels.find({
     "source_type": "rss_feed"
