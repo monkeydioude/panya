@@ -7,6 +7,7 @@ use crate::error::{Error, HTTPError};
 use crate::services::grpc::jwt_status;
 use crate::utils::now_timestamp_ms;
 use crate::{config::Settings, db::mongo::Handle};
+use chrono::{Duration, Utc};
 use mongodb::bson::doc;
 use rocket::serde::json::Json;
 use rocket::{error, warn};
@@ -61,6 +62,10 @@ pub async fn get_feed(
             query.limits.unwrap_or_default(),
             max_limit,
             ("create_date", SortOrder::DESC),
+            vec![(
+                "create_date",
+                doc! {"$gte": (Utc::now() - Duration::weeks(1)).timestamp_millis() },
+            )],
         )
         .await
         .unwrap_or_else(|| vec![]);

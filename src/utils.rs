@@ -1,6 +1,6 @@
 use chrono::{DateTime, Duration, Utc};
-use url::{Url, Position};
 use std::time::{SystemTime, UNIX_EPOCH};
+use url::{Position, Url};
 
 pub fn now_timestamp_ms() -> u128 {
     SystemTime::now()
@@ -15,7 +15,6 @@ pub fn now_timestamp() -> u64 {
         .unwrap()
         .as_secs()
 }
-
 
 pub fn datetime_minus_minutes(minus_minutes: i64, dt: DateTime<Utc>) -> i64 {
     (dt - Duration::minutes(minus_minutes)).timestamp()

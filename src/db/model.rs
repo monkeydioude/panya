@@ -204,6 +204,7 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
         limits_in: impl Into<Option<HashMap<L, i64>>>,
         mut max_limit: i64,
         sort_tuple: impl Into<Option<(&str, SortOrder)>>,
+        matches: impl Into<Option<Vec<(&str, Document)>>>,
     ) -> Option<Vec<T>> {
         let mut limits_safe = HashMap::new();
         if let Some(limits_in_into) = limits_in.into() {
@@ -214,12 +215,23 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
         if let Some((field_name, order)) = sort_tuple.into() {
             pipeline.push(doc! { "$sort": {field_name: order.value()} });
         }
+
+        let mut mtch = doc! { "$match": {
+            field: {
+                "$in": to_bson_vec(&field_in)
+            },
+        } };
+
+        if let Some(matches_into) = matches.into() {
+            if let Ok(match_doc) = mtch.get_document_mut("$match") {
+                matches_into.iter().for_each(|item| {
+                    match_doc.insert(item.0, item.1.clone());
+                });
+            }
+        }
+        println!("mtch: {:?}", mtch);
         let mut rest = vec![
-            doc! { "$match": {
-                field: {
-                    "$in": to_bson_vec(&field_in)
-                },
-            } },
+            mtch,
             doc! { "$group": {
                 "_id": format!("${}", field),
                 "docs": { "$push": "$$ROOT" }
@@ -467,6 +479,7 @@ mod tests {
                 HashMap::from([(1, 10), (2, 5),]),
                 10,
                 ("create_date", SortOrder::DESC),
+                None,
             )
             .await
             .unwrap()
