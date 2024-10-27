@@ -210,7 +210,11 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
             limits_safe = limits_in_into;
             max_limit = limits_safe.iter().map(|e| *e.1).max().unwrap_or(max_limit);
         }
-        let mut pipeline = vec![
+        let mut pipeline = vec![];
+        if let Some((field_name, order)) = sort_tuple.into() {
+            pipeline.push(doc! { "$sort": {field_name: order.value()} });
+        }
+        let mut rest = vec![
             doc! { "$match": {
                 field: {
                     "$in": to_bson_vec(&field_in)
@@ -223,12 +227,10 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
             doc! { "$project": {
                 "_id": 0,
                 "link": 1,
-                "docs": { "$slice": ["$docs", max_limit * field_in.len() as i64] }
+                "docs": { "$slice": ["$docs", max_limit] }
             }},
         ];
-        if let Some((field_name, order)) = sort_tuple.into() {
-            pipeline.insert(1, doc! { "$sort": {field_name: order.value()} });
-        }
+        pipeline.append(&mut rest);
         let mut cursor = self
             .collection()
             .aggregate(pipeline, None)
