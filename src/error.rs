@@ -78,6 +78,13 @@ impl HTTPError {
     }
 }
 
+impl From<Error> for HTTPError {
+    fn from(value: Error) -> Self {
+        error!("{}", value);
+        Self::InternalServerError(value)
+    }
+}
+
 impl<'r> Responder<'r, 'static> for HTTPError {
     fn respond_to(self, _: &'r Request<'_>) -> response::Result<'static> {
         Response::build()

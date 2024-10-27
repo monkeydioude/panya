@@ -229,7 +229,6 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
                 });
             }
         }
-        println!("mtch: {:?}", mtch);
         let mut rest = vec![
             mtch,
             doc! { "$group": {

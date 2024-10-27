@@ -1,24 +1,19 @@
-use std::collections::HashMap;
-
+use crate::db::channel::Channels;
 use crate::db::items::Items;
 use crate::db::model::{CollectionModel, SortOrder};
+use crate::entities::channel::Channel;
 use crate::entities::potential_articles::PotentialArticle;
 use crate::error::{Error, HTTPError};
+use crate::services::feed::GetFeedQuery;
 use crate::services::grpc::jwt_status;
 use crate::utils::now_timestamp_ms;
 use crate::{config::Settings, db::mongo::Handle};
 use chrono::{Duration, Utc};
 use mongodb::bson::doc;
 use rocket::serde::json::Json;
-use rocket::{error, warn};
+use rocket::warn;
 
 use super::{Token, XQueryID};
-
-#[derive(FromForm)]
-pub struct GetFeedQuery {
-    pub ids: String,
-    pub limits: Option<HashMap<i32, i64>>,
-}
 
 #[get("/feed?<query..>")]
 pub async fn get_feed(
@@ -41,18 +36,9 @@ pub async fn get_feed(
         return Ok(Json(vec![]));
     }
     let ids: Vec<i32> = query
-        .ids
-        .split(",")
-        // convert from String to u32
-        .filter_map(|e| e.trim().parse::<i32>().ok())
-        .collect();
-    let items_coll = match Items::<PotentialArticle>::new(db_handle, "panya") {
-        Ok(c) => c,
-        Err(err) => {
-            error!("{}", err);
-            return Ok(Json(vec![]));
-        }
-    };
+        .get_ids(&Channels::<Channel>::new(db_handle, "panya")?)
+        .await;
+    let items_coll = Items::<PotentialArticle>::new(db_handle, "panya")?;
     let max_limit = settings.default_item_per_feed;
     let time_bfore = now_timestamp_ms();
     let mut items = items_coll

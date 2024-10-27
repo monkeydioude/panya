@@ -1,6 +1,7 @@
 pub mod bakery;
 pub mod channels;
 pub mod cook_rss;
+pub mod feed;
 pub mod grpc;
 pub mod link_op;
 pub mod panya;
