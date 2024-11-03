@@ -7,15 +7,14 @@ use crate::db::model::CollectionModel;
 use crate::db::mongo::Handle;
 use crate::entities::channel::{new_with_seq_db, SourceType};
 use crate::entities::potential_articles::PotentialArticle;
+use crate::request_guards::auth::Auth;
+use crate::request_guards::xqueryid::XQueryID;
 use crate::services::cook_rss::cook;
-use crate::services::grpc::jwt_status;
 use crate::services::panya::return_db_articles;
 use crate::utils::clean_url;
 use mongodb::bson::doc;
 use rocket::response::content::RawXml;
 use rocket::{error, warn};
-
-use super::Token;
 
 #[derive(FromForm)]
 pub struct GetUrlQuery {
@@ -34,16 +33,9 @@ pub async fn get_url(
     handle: &rocket::State<Handle>,
     settings: &rocket::State<Settings>,
     query: GetUrlQuery,
-    token: Token,
+    _uuid: XQueryID,
+    _auth: Auth,
 ) -> RawXml<String> {
-    if let Err(err) = jwt_status(
-        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
-        &token.0,
-    )
-    .await
-    {
-        return RawXml(err.to_string());
-    }
     if query.url.is_empty() {
         warn!("handler::get_url - no url found");
         return RawXml(cook(&query.url, &query.url, vec![]));

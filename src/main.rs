@@ -8,6 +8,7 @@ pub mod db;
 pub mod entities;
 pub mod error;
 pub mod handlers;
+pub mod request_guards;
 pub mod services;
 pub mod utils;
 

@@ -1,50 +1,31 @@
-use crate::db::channel::Channels;
 use crate::db::items::Items;
 use crate::db::model::{CollectionModel, SortOrder};
-use crate::entities::channel::Channel;
 use crate::entities::potential_articles::PotentialArticle;
-use crate::error::{Error, HTTPError};
+use crate::entities::user::User;
+use crate::error::HTTPError;
+use crate::request_guards::xqueryid::XQueryID;
 use crate::services::feed::GetFeedQuery;
-use crate::services::grpc::jwt_status;
 use crate::utils::now_timestamp_ms;
 use crate::{config::Settings, db::mongo::Handle};
 use chrono::{Duration, Utc};
 use mongodb::bson::doc;
 use rocket::serde::json::Json;
-use rocket::warn;
-
-use super::{Token, XQueryID};
 
 #[get("/feed?<query..>")]
 pub async fn get_feed(
     db_handle: &rocket::State<Handle>,
     settings: &rocket::State<Settings>,
     query: GetFeedQuery,
-    token: Token,
-    uuid: XQueryID,
+    xquery_id: XQueryID,
+    user: User,
 ) -> Result<Json<Vec<PotentialArticle>>, HTTPError> {
-    if let Err(err) = jwt_status(
-        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
-        &token.0,
-    )
-    .await
-    {
-        return Err(HTTPError::Unauthorized(Error::from(err)));
-    }
-    if query.ids.is_empty() {
-        warn!("handler::get_channels - no ids found");
-        return Ok(Json(vec![]));
-    }
-    let ids: Vec<i32> = query
-        .get_ids(&Channels::<Channel>::new(db_handle, "panya")?)
-        .await;
     let items_coll = Items::<PotentialArticle>::new(db_handle, "panya")?;
     let max_limit = settings.default_item_per_feed;
     let time_bfore = now_timestamp_ms();
     let mut items = items_coll
         .find_with_limits(
             "channel_id",
-            ids,
+            user.channel_ids,
             query.limits.unwrap_or_default(),
             max_limit,
             ("create_date", SortOrder::DESC),
@@ -57,7 +38,7 @@ pub async fn get_feed(
         .unwrap_or_else(|| vec![]);
     info!(
         "({}): time for query: {}ms",
-        uuid.0,
+        xquery_id,
         now_timestamp_ms() - time_bfore
     );
     items.sort_by(|a, b| b.cmp(a));

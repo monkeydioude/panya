@@ -152,6 +152,9 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
             .and_then(|res| res.first().cloned())
     }
 
+    async fn find_by_id(&self, field: &str, value: impl Into<Bson>) -> Option<T> {
+        self.find_one(field, value).await
+    }
     /// find returns document matching a `doc`, sorting on a `field` using a `sort` order (SortOrder),
     /// limited to a `limit` number of documents.
     async fn find(

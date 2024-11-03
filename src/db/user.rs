@@ -1,3 +1,5 @@
+use crate::error::Error;
+
 use super::{
     model::{CollectionModel, CollectionModelConstraint},
     mongo::Handle,
@@ -12,7 +14,23 @@ pub struct Users<'a, T: Serialize> {
     handle: &'a Handle,
     db_name: String,
 }
-
+impl<'a, T: CollectionModelConstraint<i32>> Users<'a, T> {
+    pub fn new(handle: &'a Handle, db_name: &'a str) -> Result<Self, Error> {
+        let collection = (match handle.database(db_name) {
+            Some(res) => res,
+            None => return Err(Error("no database found".to_string())),
+        })
+        .collection::<T>("users");
+        Ok(Users {
+            db_name: db_name.to_string(),
+            handle,
+            collection,
+        })
+    }
+    // pub async fn find_by_id(&self, user: User) -> Option<T> {
+    //     self.find_one("id", user.id).await
+    // }
+}
 impl<'a, P: PartialEq + Into<mongodb::bson::Bson> + Clone, T: CollectionModelConstraint<P>>
     CollectionModel<P, T> for Users<'a, T>
 {
