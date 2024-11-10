@@ -9,6 +9,7 @@ pub mod entities;
 pub mod error;
 pub mod handlers;
 pub mod request_guards;
+pub mod response;
 pub mod services;
 pub mod utils;
 
@@ -17,6 +18,7 @@ use handlers::{
     feed::get_feed,
     healthcheck::healthcheck,
     panya::get_url,
+    user::show_user_me,
 };
 use rocket::{
     fairing::{AdHoc, Fairing, Info, Kind},
@@ -115,7 +117,8 @@ async fn launch() -> _ {
             get_channel,
             update_channel,
             add_url,
-            delete_channel
+            delete_channel,
+            show_user_me,
         ],
         8083,
     )

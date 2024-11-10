@@ -3,7 +3,7 @@ use rocket::request::{FromRequest, Outcome};
 use rocket::{Request, State};
 use serde::{Deserialize, Serialize};
 
-use crate::db::model::{CollectionModel, Updatable};
+use crate::db::model::{CloneEntity, CollectionModel, Updatable};
 use crate::db::mongo::Handle;
 use crate::db::user::Users;
 use crate::request_guards::auth::Auth;
@@ -16,6 +16,8 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct User {
     pub id: i32,
+    #[serde(skip_serializing, skip_deserializing)]
+    pub username: String,
     pub channel_ids: Vec<i32>,
 }
 
@@ -53,14 +55,13 @@ impl<'r> FromRequest<'r> for User {
                 return Outcome::Error((Status::InternalServerError, Error(err.to_string())))
             }
         };
-
-        Outcome::Success(match users_coll.find_by_id("id", auth.user.id).await {
-            Some(_user) => _user,
+        match users_coll.find_by_field("id", auth.user.id).await {
+            Some(_user) => Outcome::Success(_user),
             None => {
                 eprintln!("({}) could not find any user in db", uuid);
-                auth.user
+                Outcome::Error((Status::BadRequest, Error::str("user does not exist")))
             }
-        })
+        }
     }
 }
 
@@ -76,8 +77,14 @@ impl PrimaryID<i32> for User {
     }
 }
 
-impl Updatable<i32, User> for &User {
+impl Updatable<i32, User> for User {
     fn update(&self, _: User) -> User {
+        (*self).clone()
+    }
+}
+
+impl CloneEntity<User> for User {
+    fn clone_entity(&self) -> User {
         (*self).clone()
     }
 }

@@ -113,13 +113,16 @@ pub async fn add_url(
     if !user.channel_ids.contains(&c.id) {
         user.channel_ids.push(c.id);
     }
-    if let Err(err) = users_coll.update_one("id", user.id, &user).await {
-        eprintln!("({}) {}", uuid, err);
-        if let Err(err) = users_coll.insert_many(&vec![user]).await {
-            eprintln!("({}) {}", uuid, err);
-        }
-    }
+    let res = users_coll.update_one_or_insert("id", user.id, &user).await;
 
+    if let Some(err) = &(res.1) {
+        eprintln!("({}) {}", uuid, err);
+    }
+    if res.0 == false {
+        return Err(HTTPError::InternalServerError(
+            res.1.unwrap_or_else(|| Error::str("unknown error")),
+        ));
+    }
     Ok(Json(AddChannel {
         channel_url: c.url,
         channel_name: c.name,
@@ -139,7 +142,7 @@ pub async fn update_channel(
     _auth: Auth,
 ) -> Result<Json<Channel>, Error> {
     Channels::new(handle, "panya")?
-        .update_one("id", id, update_channel.into_inner())
+        .update_one("id", id, &update_channel.into_inner())
         .await
         .map(|entity| Json(entity))
 }

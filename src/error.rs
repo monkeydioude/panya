@@ -59,6 +59,12 @@ impl From<serde_json::Error> for Error {
     }
 }
 
+impl From<regex::Error> for Error {
+    fn from(value: regex::Error) -> Self {
+        Error(value.to_string())
+    }
+}
+
 pub enum HTTPError {
     BadRequest(Error),
     Unauthorized(Error),

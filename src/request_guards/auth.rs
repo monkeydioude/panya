@@ -28,6 +28,7 @@ impl From<Claims> for Auth {
             user: User {
                 id: claims.uid,
                 channel_ids: vec![],
+                username: "".to_string(),
             },
         }
     }

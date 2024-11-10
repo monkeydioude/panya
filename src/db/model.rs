@@ -12,6 +12,7 @@ use std::{
     fmt::{Debug, Display},
     vec,
 };
+use thiserror::Error;
 
 use super::mongo::{db_not_found_err, to_bson_vec, Handle};
 
@@ -63,6 +64,10 @@ pub trait Updatable<P: PartialEq, T: CollectionModelConstraint<P>> {
     fn update(&self, entity: T) -> T;
 }
 
+pub trait CloneEntity<T> {
+    fn clone_entity(&self) -> T;
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Counter {
     _id: String,
@@ -74,6 +79,25 @@ struct DocsWrapper<T> {
     docs: Vec<T>,
 }
 
+#[derive(Debug, Error)]
+pub struct ModelError {
+    err: Option<Error>,
+    success: bool,
+}
+
+impl Display for ModelError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "success ({}), {}",
+            self.success,
+            self.err
+                .clone()
+                .unwrap_or_else(|| Error("no error".to_string()))
+        )
+    }
+}
+
 pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelConstraint<P>> {
     async fn delete_one(&self, field: &str, value: P) -> Result<DeleteResult, Error> {
         self.collection()
@@ -81,11 +105,11 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
             .await
             .map_err(Error::from)
     }
-    async fn update_one(
+    async fn update_one<U: Updatable<P, T>>(
         &self,
         field: &str,
         value: P,
-        updater: impl Updatable<P, T>,
+        updater: &U,
     ) -> Result<T, Error> {
         let entity = self
             .find_one(field, value.clone())
@@ -116,13 +140,27 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
             .map_err(Error::from)
     }
 
+    async fn update_one_or_insert<UC: Updatable<P, T> + CloneEntity<T>>(
+        &self,
+        field: &str,
+        value: P,
+        updater: &UC,
+    ) -> (bool, Option<Error>) {
+        if let Err(err) = self.update_one(field, value, updater).await {
+            if let Err(err) = self.insert_many(&vec![updater.clone_entity()]).await {
+                return (false, Some(err));
+            }
+            return (true, Some(err));
+        }
+        (true, None)
+    }
+
     /// find_by_field_values fetch a `limit` number of documents matching a `field`
     async fn find_by_field_values(&self, data: &[T], field: &str, limit: i64) -> Vec<T> {
         let mut in_values = vec![];
         for item in data {
             in_values.push(item.sort_by_value());
         }
-
         let filter = doc! {field: { "$in": in_values }};
         let mut cursor = match self
             .collection()
@@ -152,7 +190,7 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
             .and_then(|res| res.first().cloned())
     }
 
-    async fn find_by_id(&self, field: &str, value: impl Into<Bson>) -> Option<T> {
+    async fn find_by_field(&self, field: &str, value: impl Into<Bson>) -> Option<T> {
         self.find_one(field, value).await
     }
     /// find returns document matching a `doc`, sorting on a `field` using a `sort` order (SortOrder),
@@ -181,17 +219,21 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
                     err
                 );
                 err
-            })
-            .ok()
-        {
-            Some(mut cursor) => {
-                let mut results = vec![];
-                while let Some(Ok(res)) = cursor.next().await {
-                    results.push(res);
-                }
-                Some(results)
+            }) {
+            Ok(cursor) => Some(
+                cursor
+                    .filter_map(|doc| async { doc.ok() })
+                    .collect::<Vec<_>>()
+                    .await,
+            ),
+            Err(err) => {
+                warn!(
+                    "error fetching in collection {}: {}",
+                    self.collection().name(),
+                    err
+                );
+                None
             }
-            None => None,
         }
     }
     /// find_with_limits allows to use multiple fields to request documents through the `field_in` parameters.
