@@ -53,6 +53,18 @@ impl From<Box<dyn stdErr>> for Error {
     }
 }
 
+impl From<serde_json::Error> for Error {
+    fn from(value: serde_json::Error) -> Self {
+        Error(value.to_string())
+    }
+}
+
+impl From<regex::Error> for Error {
+    fn from(value: regex::Error) -> Self {
+        Error(value.to_string())
+    }
+}
+
 pub enum HTTPError {
     BadRequest(Error),
     Unauthorized(Error),
@@ -82,6 +94,13 @@ impl From<Error> for HTTPError {
     fn from(value: Error) -> Self {
         error!("{}", value);
         Self::InternalServerError(value)
+    }
+}
+
+impl From<mongodb::error::Error> for HTTPError {
+    fn from(value: mongodb::error::Error) -> Self {
+        error!("{}", value);
+        Self::InternalServerError(Error(value.to_string()))
     }
 }
 

@@ -1,9 +1,12 @@
 use crate::config::Settings;
 use crate::db::model::Updatable;
+use crate::db::user::Users;
 use crate::entities::channel::{new_with_seq_db, Channel, SourceType};
+use crate::entities::user::User;
 use crate::error::{Error, HTTPError};
+use crate::request_guards::auth::Auth;
+use crate::request_guards::xqueryid::XQueryID;
 use crate::services::channels::find_out_source_type;
-use crate::services::grpc::jwt_status;
 use crate::services::link_op::trim_link;
 use mongodb::bson::doc;
 use rocket::serde::json::Json;
@@ -14,8 +17,6 @@ use crate::db::{
     model::{CollectionModel, SortOrder},
     mongo::Handle,
 };
-
-use super::Token;
 
 #[derive(Deserialize, Serialize)]
 pub struct AddChannel {
@@ -60,21 +61,16 @@ impl Updatable<i32, Channel> for UpdateChannel {
 #[get("/channels")]
 pub async fn get_channel_list(
     db_handle: &rocket::State<Handle>,
-    settings: &rocket::State<Settings>,
-    token: Token,
+    _settings: &rocket::State<Settings>,
+    _uuid: XQueryID,
+    _auth: Auth,
+    user: User,
 ) -> Result<Json<Vec<Channel>>, Error> {
-    if let Err(err) = jwt_status(
-        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
-        &token.0,
-    )
-    .await
-    {
-        return Err(Error::from(err));
-    }
     let channels = Channels::new(db_handle, "panya")?
-        .find(doc! {}, None, None, SortOrder::ASC)
+        .find(doc! {}, None, SortOrder::ASC, None)
         .await
         .unwrap_or_default();
+    println!("user: {:?}", user);
     Ok(Json(channels))
 }
 
@@ -84,18 +80,13 @@ pub async fn add_url(
     handle: &rocket::State<Handle>,
     add_channel: Json<AddChannel>,
     settings: &rocket::State<Settings>,
-    token: Token,
+    uuid: XQueryID,
+    mut user: User,
 ) -> Result<Json<AddChannel>, HTTPError> {
-    if let Err(err) = jwt_status(
-        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
-        &token.0,
-    )
-    .await
-    {
-        return Err(HTTPError::Unauthorized(Error::from(err)));
-    }
     let channels_coll =
         Channels::new(handle, "panya").map_err(|err| HTTPError::InternalServerError(err))?;
+    let users_coll =
+        Users::<User>::new(handle, "panya").map_err(|err| HTTPError::InternalServerError(err))?;
     let channel_name = trim_link(&add_channel.channel_url);
     let mut channel_opt = channels_coll.find_one("name", &channel_name).await;
     let url = &add_channel.channel_url;
@@ -113,22 +104,32 @@ pub async fn add_url(
             .ok();
     }
 
-    channel_opt
-        .ok_or_else(|| {
-            HTTPError::InternalServerError(Error::str(&format!(
-                "error adding the channel: {}",
-                add_channel.channel_url
-            )))
-        })
-        .and_then(|c| {
-            Ok(Json(AddChannel {
-                channel_url: c.url,
-                channel_name: c.name,
-                source_type: Some(c.source_type),
-                channel_id: c.id,
-                refresh_frequency: None,
-            }))
-        })
+    let c = channel_opt.ok_or_else(|| {
+        HTTPError::InternalServerError(Error::str(&format!(
+            "error adding the channel: {}",
+            add_channel.channel_url
+        )))
+    })?;
+    if !user.channel_ids.contains(&c.id) {
+        user.channel_ids.push(c.id);
+    }
+    let res = users_coll.update_one_or_insert("id", user.id, &user).await;
+
+    if let Some(err) = &(res.1) {
+        eprintln!("({}) {}", uuid, err);
+    }
+    if res.0 == false {
+        return Err(HTTPError::InternalServerError(
+            res.1.unwrap_or_else(|| Error::str("unknown error")),
+        ));
+    }
+    Ok(Json(AddChannel {
+        channel_url: c.url,
+        channel_name: c.name,
+        source_type: Some(c.source_type),
+        channel_id: c.id,
+        refresh_frequency: None,
+    }))
 }
 
 // /panya/channel
@@ -137,19 +138,11 @@ pub async fn update_channel(
     handle: &rocket::State<Handle>,
     id: i32,
     update_channel: Json<UpdateChannel>,
-    settings: &rocket::State<Settings>,
-    token: Token,
+    _uuid: XQueryID,
+    _auth: Auth,
 ) -> Result<Json<Channel>, Error> {
-    if let Err(err) = jwt_status(
-        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
-        &token.0,
-    )
-    .await
-    {
-        return Err(Error::from(err));
-    }
     Channels::new(handle, "panya")?
-        .update_one("id", id, update_channel.into_inner())
+        .update_one("id", id, &update_channel.into_inner())
         .await
         .map(|entity| Json(entity))
 }
@@ -159,17 +152,9 @@ pub async fn update_channel(
 pub async fn get_channel(
     handle: &rocket::State<Handle>,
     id: i32,
-    settings: &rocket::State<Settings>,
-    token: Token,
+    _uuid: XQueryID,
+    _auth: Auth,
 ) -> Result<Json<Channel>, Error> {
-    if let Err(err) = jwt_status(
-        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
-        &token.0,
-    )
-    .await
-    {
-        return Err(Error::from(err));
-    }
     let channels_coll = Channels::new(handle, "panya")?;
     Ok(Json(
         channels_coll
@@ -184,17 +169,9 @@ pub async fn get_channel(
 pub async fn delete_channel(
     handle: &rocket::State<Handle>,
     id: i32,
-    settings: &rocket::State<Settings>,
-    token: Token,
+    _uuid: XQueryID,
+    _auth: Auth,
 ) -> Result<String, Error> {
-    if let Err(err) = jwt_status(
-        Box::leak(settings.identity_server_addr.clone().into_boxed_str()),
-        &token.0,
-    )
-    .await
-    {
-        return Err(Error::from(err));
-    }
     let channels_coll = Channels::new(handle, "panya")?;
     channels_coll
         .delete_one("id", id)

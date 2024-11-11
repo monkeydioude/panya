@@ -44,8 +44,8 @@ pub async fn should_fetch_items(
                 },
             },
             Some("create_date"),
-            1,
             SortOrder::DESC,
+            1,
         )
         .await
         .and_then(|v| {

@@ -5,11 +5,9 @@ use tonic::{metadata::MetadataValue, transport::Channel, Request};
 use crate::error::Error;
 const ERR_TOKEN_EXPIRED: &str = "TokenExpiredError";
 
-pub async fn jwt_status(
-    identity_server_addr: &'static str,
-    jwt: &str,
-) -> Result<bool, Box<dyn stdError>> {
-    let channel = Channel::from_static(identity_server_addr).connect().await?;
+pub async fn jwt_status(identity_server_addr: &str, jwt: &str) -> Result<bool, Box<dyn stdError>> {
+    let addr = Box::leak(identity_server_addr.to_string().clone().into_boxed_str());
+    let channel = Channel::from_static(addr).connect().await?;
     let token: MetadataValue<_> = ("Authorization=".to_string() + jwt).parse()?;
     let mut client = JwtClient::with_interceptor(channel, move |mut req: Request<()>| {
         req.metadata_mut().insert("set-cookie", token.clone());
