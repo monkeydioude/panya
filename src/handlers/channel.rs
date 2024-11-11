@@ -67,7 +67,7 @@ pub async fn get_channel_list(
     user: User,
 ) -> Result<Json<Vec<Channel>>, Error> {
     let channels = Channels::new(db_handle, "panya")?
-        .find(doc! {}, None, None, SortOrder::ASC)
+        .find(doc! {}, None, SortOrder::ASC, None)
         .await
         .unwrap_or_default();
     println!("user: {:?}", user);

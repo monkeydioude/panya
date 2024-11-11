@@ -15,10 +15,9 @@ pub mod utils;
 
 use handlers::{
     channel::{add_url, delete_channel, get_channel, get_channel_list, update_channel},
-    feed::get_feed,
     healthcheck::healthcheck,
     panya::get_url,
-    user::show_user_me,
+    user::{show_user, show_user_channels, show_user_feed},
 };
 use rocket::{
     fairing::{AdHoc, Fairing, Info, Kind},
@@ -112,13 +111,15 @@ async fn launch() -> _ {
         routes![
             healthcheck,
             get_url,
-            get_feed,
+            // get_feed,
             get_channel_list,
             get_channel,
             update_channel,
             add_url,
             delete_channel,
-            show_user_me,
+            show_user,
+            show_user_feed,
+            show_user_channels,
         ],
         8083,
     )

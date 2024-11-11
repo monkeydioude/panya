@@ -185,7 +185,7 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
     }
 
     async fn find_one<F: Sized + Into<Bson>>(&self, field: &str, value: F) -> Option<T> {
-        self.find(doc! {field: value}, None, 1, None)
+        self.find(doc! {field: value}, None, None, 1)
             .await
             .and_then(|res| res.first().cloned())
     }
@@ -198,14 +198,14 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
     async fn find(
         &self,
         filter: Document,
-        field: Option<&str>,
+        field_sort: Option<&str>,
+        order_sort: impl Into<Option<SortOrder>>,
         limit: impl Into<Option<i64>>,
-        sort: impl Into<Option<SortOrder>>,
     ) -> Option<Vec<T>> {
         let find_options = FindOptions::builder()
             .limit(limit)
             .sort(doc! {
-                field.unwrap_or("_id"): sort.into().unwrap_or(SortOrder::DESC).value(),
+                field_sort.unwrap_or("_id"): order_sort.into().unwrap_or(SortOrder::DESC).value(),
             })
             .build();
 
