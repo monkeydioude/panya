@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::config::Settings;
 use crate::db::model::Updatable;
 use crate::db::user::Users;
@@ -60,7 +62,7 @@ impl Updatable<i32, Channel> for UpdateChannel {
 
 #[get("/channels")]
 pub async fn get_channel_list(
-    db_handle: &rocket::State<Handle>,
+    db_handle: &rocket::State<Arc<Handle>>,
     _settings: &rocket::State<Settings>,
     _uuid: XQueryID,
     _auth: Auth,
@@ -77,7 +79,7 @@ pub async fn get_channel_list(
 // /panya/channel
 #[post("/channel", format = "json", data = "<add_channel>")]
 pub async fn add_url(
-    handle: &rocket::State<Handle>,
+    handle: &rocket::State<Arc<Handle>>,
     add_channel: Json<AddChannel>,
     settings: &rocket::State<Settings>,
     uuid: XQueryID,
@@ -135,7 +137,7 @@ pub async fn add_url(
 // /panya/channel
 #[put("/channel/<id>", format = "json", data = "<update_channel>")]
 pub async fn update_channel(
-    handle: &rocket::State<Handle>,
+    handle: &rocket::State<Arc<Handle>>,
     id: i32,
     update_channel: Json<UpdateChannel>,
     _uuid: XQueryID,
@@ -150,7 +152,7 @@ pub async fn update_channel(
 // /panya/channel
 #[get("/channel/<id>")]
 pub async fn get_channel(
-    handle: &rocket::State<Handle>,
+    handle: &rocket::State<Arc<Handle>>,
     id: i32,
     _uuid: XQueryID,
     _auth: Auth,
@@ -167,7 +169,7 @@ pub async fn get_channel(
 // /panya/channel
 #[delete("/channel/<id>")]
 pub async fn delete_channel(
-    handle: &rocket::State<Handle>,
+    handle: &rocket::State<Arc<Handle>>,
     id: i32,
     _uuid: XQueryID,
     _auth: Auth,

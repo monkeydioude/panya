@@ -12,6 +12,7 @@ pub mod request_guards;
 pub mod response;
 pub mod services;
 pub mod utils;
+pub mod workers;
 
 use handlers::{
     channel::{add_url, delete_channel, get_channel, get_channel_list, update_channel},
@@ -23,8 +24,9 @@ use rocket::{
     fairing::{AdHoc, Fairing, Info, Kind},
     Build, Config, Data, Request, Response, Rocket, Route,
 };
+use workers::identity::identity_new_user;
 
-use std::net::Ipv4Addr;
+use std::{net::Ipv4Addr, sync::Arc};
 use utils::now_timestamp_ms;
 use uuid::Uuid;
 
@@ -61,6 +63,8 @@ impl Fairing for XRequestIdMiddleware {
 
 async fn lezgong(routes: Vec<Route>, port: u16) -> Rocket<Build> {
     let settings = config::Settings::new().unwrap();
+    let db_handle = Arc::new(db::mongo::get_handle(&settings).await);
+    let _ = identity_new_user(Arc::clone(&db_handle)).await;
     rocket::build()
         .configure(Config {
             port,
@@ -72,7 +76,7 @@ async fn lezgong(routes: Vec<Route>, port: u16) -> Rocket<Build> {
             ..Config::default()
         })
         .mount("/panya", routes)
-        .manage(db::mongo::get_handle(&settings).await)
+        .manage(db_handle)
         .manage(settings)
         .attach(XRequestIdMiddleware)
         .attach(AdHoc::on_request("time_before", |req, _| {
