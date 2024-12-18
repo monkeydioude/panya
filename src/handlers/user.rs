@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use rocket::serde::json::Json;
 
 use crate::db::channel::Channels;
@@ -41,7 +43,7 @@ pub async fn show_user_channels(_uuid: XQueryID, user: User) -> Result<Json<User
 // GET /panya/user/channels
 #[get("/user/channels")]
 pub async fn show_user(
-    db_handle: &rocket::State<Handle>,
+    db_handle: &rocket::State<Arc<Handle>>,
     _uuid: XQueryID,
     user: User,
 ) -> Result<Json<Vec<PublicChannel>>, HTTPError> {
@@ -55,7 +57,7 @@ pub async fn show_user(
 
 #[get("/user/feed?<query..>")]
 pub async fn show_user_feed(
-    db_handle: &rocket::State<Handle>,
+    db_handle: &rocket::State<Arc<Handle>>,
     settings: &rocket::State<Settings>,
     query: GetFeedQuery,
     xquery_id: XQueryID,

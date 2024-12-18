@@ -2,8 +2,8 @@ use crate::error::Error;
 use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{doc, to_document, Bson, Document},
-    options::{FindOneAndUpdateOptions, FindOptions},
-    results::{DeleteResult, InsertManyResult},
+    options::{FindOneAndUpdateOptions, FindOptions, InsertOneOptions},
+    results::{DeleteResult, InsertManyResult, InsertOneResult},
     Collection, Database,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -136,6 +136,17 @@ pub trait CollectionModel<P: PartialEq + Into<Bson> + Clone, T: CollectionModelC
 
         self.collection()
             .insert_many(data, None)
+            .await
+            .map_err(Error::from)
+    }
+
+    async fn insert_one(
+        &self,
+        data: &T,
+        options: impl Into<Option<InsertOneOptions>>,
+    ) -> Result<InsertOneResult, Error> {
+        self.collection()
+            .insert_one(data, options)
             .await
             .map_err(Error::from)
     }

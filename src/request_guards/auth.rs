@@ -1,5 +1,4 @@
 use crate::config::Settings;
-use crate::entities::user::User;
 use crate::services::grpc::jwt_status;
 use crate::services::token::ApiTokenError;
 use crate::utils::decode_base64_url;
@@ -12,7 +11,7 @@ use super::xqueryid::XQueryID;
 
 #[derive(Debug)]
 pub struct Auth {
-    pub user: User,
+    pub user_id: i32,
 }
 
 #[derive(Deserialize, PartialEq, Debug)]
@@ -25,11 +24,7 @@ pub struct Claims {
 impl From<Claims> for Auth {
     fn from(claims: Claims) -> Self {
         Auth {
-            user: User {
-                id: claims.uid,
-                channel_ids: vec![],
-                username: "".to_string(),
-            },
+            user_id: claims.uid,
         }
     }
 }
@@ -46,7 +41,7 @@ pub fn fetch_claims(token: &str) -> Option<Claims> {
 // - fetch the JWT from the header
 // - validate the JWT by calling the identity service
 // - parse the payload for the user's information
-// - returns an Auth struct containing an User entity
+// - returns an Auth struct containing a user ID
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for Auth {
     type Error = ApiTokenError;

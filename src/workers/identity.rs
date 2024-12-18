@@ -1,22 +1,42 @@
 use std::{sync::Arc, thread::sleep, time};
 
 use crate::{
-    db::{mongo::Handle, user::Users},
+    db::{model::CollectionModel, mongo::Handle, user::Users},
     entities::user::User,
+    error::Error,
 };
-use futures::StreamExt;
+use futures::{StreamExt, TryFutureExt};
 use heyo_rpc_client::rpc::{broker_client::BrokerClient, Message, Subscriber};
 use rocket::tokio::spawn;
 use serde::Deserialize;
-use std::error::Error;
 use tonic::transport::Channel;
 use uuid::Uuid;
 const USER_CREATION_EVENT: &'static str = "event.on_user_creation";
 
-async fn process_message(msg: Message, db_handle: &Arc<Handle>) -> Result<(), Box<dyn Error>> {
-    let user: Result<User, serde_json::Error> = serde_json::from_str(&msg.data);
-    // Users::new(&db_handle, "users");
-    Ok(())
+#[derive(Debug, Deserialize)]
+pub struct IdentityUser {
+    pub id: i32,
+    pub login: String,
+    #[serde(default)]
+    pub channel_ids: Vec<i32>,
+    pub created_at: String,
+}
+impl Into<User> for IdentityUser {
+    fn into(self) -> User {
+        User {
+            id: self.id,
+            username: self.login,
+            channel_ids: self.channel_ids,
+        }
+    }
+}
+
+async fn process_message(msg: &Message, db_handle: &Arc<Handle>) -> Result<(), Error> {
+    let identity_user: IdentityUser = serde_json::from_str(&msg.data).map_err(Error::from)?;
+    let coll = Users::<User>::new(&db_handle, "panya")?;
+    coll.insert_one(&identity_user.into(), None)
+        .map_ok(|_| ())
+        .await
 }
 
 async fn run_listener(client: &mut BrokerClient<Channel>, db_handle: &Arc<Handle>) {
@@ -48,16 +68,18 @@ async fn run_listener(client: &mut BrokerClient<Channel>, db_handle: &Arc<Handle
             }
         };
         println!("[INFO] Received from QUEUE: {:?}", &msg);
-        if let Err(err) = process_message(msg, db_handle).await {
+        if let Err(err) = process_message(&msg, db_handle).await {
             eprintln!(
                 "[ERR ] Could not process MESSAGE subscription from QUEUE: {:?}, EVENT: {}, CLIENT: {}, MESSAGE: {}",
                 err, msg.event, msg.client_id, msg.message_id,
             );
+            return;
         }
+        println!("[INFO] User created");
     }
 }
 
-pub async fn identity_new_user(db_handle: Arc<Handle>) -> Result<(), Box<dyn Error>> {
+pub async fn identity_new_user(db_handle: Arc<Handle>) -> Result<(), Error> {
     println!("[INFO] Starting Identity WORKER setup");
 
     let arc_db_handle = Arc::clone(&db_handle);

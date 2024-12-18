@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::db::items::Items;
 use crate::db::model::{CollectionModel, SortOrder};
 use crate::entities::potential_articles::PotentialArticle;
@@ -13,7 +15,7 @@ use rocket::serde::json::Json;
 
 #[get("/feed?<query..>")]
 pub async fn get_feed(
-    db_handle: &rocket::State<Handle>,
+    db_handle: &rocket::State<Arc<Handle>>,
     settings: &rocket::State<Settings>,
     query: GetFeedQuery,
     xquery_id: XQueryID,

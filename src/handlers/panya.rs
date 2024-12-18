@@ -1,4 +1,5 @@
 use std::error::Error as StdError;
+use std::sync::Arc;
 
 use crate::config::Settings;
 use crate::db::channel::Channels;
@@ -30,7 +31,7 @@ fn handle_error(err: &dyn StdError, msg: &str, url: &str) -> RawXml<String> {
 // /panya?url=
 #[get("/?<query..>")]
 pub async fn get_url(
-    handle: &rocket::State<Handle>,
+    handle: &rocket::State<Arc<Handle>>,
     settings: &rocket::State<Settings>,
     query: GetUrlQuery,
     _uuid: XQueryID,

@@ -16,8 +16,8 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct User {
     pub id: i32,
-    #[serde(skip_serializing, skip_deserializing)]
     pub username: String,
+    #[serde(default)]
     pub channel_ids: Vec<i32>,
 }
 
@@ -55,7 +55,7 @@ impl<'r> FromRequest<'r> for User {
                 return Outcome::Error((Status::InternalServerError, Error(err.to_string())))
             }
         };
-        match users_coll.find_by_field("id", auth.user.id).await {
+        match users_coll.find_by_field("id", auth.user_id).await {
             Some(_user) => Outcome::Success(_user),
             None => {
                 eprintln!("({}) could not find any user in db", uuid);
