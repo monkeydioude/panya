@@ -78,7 +78,7 @@ async fn run_listener(client: &mut BrokerClient<Channel>, db_handle: &Arc<Handle
         };
         println!("[INFO] Received from QUEUE: {:?}", &msg);
         match process_message(&msg, db_handle).await {
-            Ok(false) => eprintln!("[ERR ] User creation abored"),
+            Ok(false) => eprintln!("[ERR ] User creation aborted"),
             Ok(true) => println!("[INFO] User created"),
             Err(err) => {
                 eprintln!(
