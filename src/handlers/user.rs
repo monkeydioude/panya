@@ -1,9 +1,15 @@
 use std::sync::Arc;
 
+use rocket::http::{Cookie, CookieJar};
 use rocket::serde::json::Json;
+use serde::{Deserialize, Serialize};
 
 use crate::db::channel::Channels;
 use crate::entities::channel::Channel;
+use crate::error::Error;
+use crate::response::HTTPResponse;
+use crate::services::grpc::{user_login, user_signup};
+use crate::services::token::extract_auth;
 use crate::{entities::user::User, error::HTTPError, request_guards::xqueryid::XQueryID};
 
 use crate::db::items::Items;
@@ -16,23 +22,55 @@ use chrono::{Duration, Utc};
 use mongodb::bson::doc;
 
 use super::public_entities::public_channel::PublicChannel;
-// #[derive(Deserialize, Serialize)]
-// pub struct AddUser {
-//     username: String,
-//     #[serde(skip_deserializing)]
-//     email: String,
-// }
+#[derive(Deserialize, Serialize)]
+pub struct UserPayload {
+    pub login: String,
+    pub password: String,
+}
 
-// // /panya/channel
-// #[post("/user", format = "json", data = "<add_user>")]
-// pub async fn add_user(
-//     handle: &rocket::State<Handle>,
-//     add_user: Json<AddUser>,
-//     settings: &rocket::State<Settings>,
-//     uuid: XQueryID,
-// ) -> Result<Json<HTTPResponse>, HTTPError> {
-//     Ok(Json(HTTPResponse::created()))
-// }
+// /panya/channel
+#[post("/user", format = "json", data = "<add_user>")]
+pub async fn add_user(
+    cookies: &CookieJar<'_>,
+    add_user: Json<UserPayload>,
+    settings: &rocket::State<Settings>,
+    uuid: XQueryID,
+) -> Result<Json<HTTPResponse>, HTTPError> {
+    println!(
+        "[INFO] ({}) User signup attempt with login {}",
+        uuid, add_user.login
+    );
+    let resp = match user_signup(&settings.identity_server_addr, &add_user).await {
+        Ok(r) => r,
+        Err(err) => return Err(HTTPError::InternalServerError(err.into())),
+    };
+
+    if resp.code == 400 {
+        return Err(HTTPError::BadRequest(Error(
+            "login already used".to_string(),
+        )));
+    }
+    if resp.code != 200 {
+        return Err(HTTPError::InternalServerError(Error(
+            "error during user signup".to_string(),
+        )));
+    }
+
+    let login_resp = match user_login(&settings.identity_server_addr, &add_user).await {
+        Ok(r) => r,
+        Err(err) => return Err(HTTPError::InternalServerError(err.into())),
+    };
+
+    cookies.add(
+        Cookie::build(("Authorization", extract_auth(&login_resp.1)))
+            .path("/") // Cookie is valid across the entire application
+            .http_only(true) // Prevent access to the cookie via JavaScript
+            .secure(true) // Send cookie only over HTTPS
+            .max_age(rocket::time::Duration::hours(1)), // Set the cookie expiration
+    );
+
+    return Ok(Json(HTTPResponse::created()));
+}
 
 // GET /panya/user
 #[get("/user")]

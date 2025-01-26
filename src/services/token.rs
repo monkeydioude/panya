@@ -19,3 +19,13 @@ impl From<ApiTokenError> for Error {
         )
     }
 }
+
+pub fn extract_auth(metadata: &str) -> String {
+    metadata
+        .split(';') // Split by semicolon
+        .find(|part| part.trim_start().starts_with("Authorization=")) // Find the "Authorization=" part
+        .and_then(|part| part.trim_start().strip_prefix("Authorization=")) // Remove "Authorization="
+        .map(|value| value.trim_matches('"')) // Remove surrounding quotes
+        .unwrap_or_default() // Default to empty string if not found
+        .to_string()
+}

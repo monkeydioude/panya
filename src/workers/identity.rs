@@ -53,6 +53,7 @@ async fn run_listener(client: &mut BrokerClient<Channel>, db_handle: &Arc<Handle
         .subscription(Subscriber {
             event: USER_CREATION_EVENT.to_owned(),
             client_id: Uuid::new_v4().to_string(),
+            name: "panya".to_string(),
         })
         .await;
     let mut stream = match sub_res {

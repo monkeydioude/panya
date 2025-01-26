@@ -18,13 +18,13 @@ use handlers::{
     channel::{add_url, delete_channel, get_channel, get_channel_list, update_channel},
     healthcheck::healthcheck,
     panya::get_url,
-    user::{show_user, show_user_channels, show_user_feed},
+    user::{add_user, show_user, show_user_channels, show_user_feed},
 };
 use rocket::{
     fairing::{AdHoc, Fairing, Info, Kind},
     Build, Config, Data, Request, Response, Rocket, Route,
 };
-use workers::identity::identity_new_user;
+// use workers::identity::identity_new_user;
 
 use std::{net::Ipv4Addr, sync::Arc};
 use utils::now_timestamp_ms;
@@ -64,7 +64,7 @@ impl Fairing for XRequestIdMiddleware {
 async fn lezgong(routes: Vec<Route>, port: u16) -> Rocket<Build> {
     let settings = config::Settings::new().unwrap();
     let db_handle = Arc::new(db::mongo::get_handle(&settings).await);
-    let _ = identity_new_user(Arc::clone(&db_handle)).await;
+    // let _ = identity_new_user(Arc::clone(&db_handle)).await;
     rocket::build()
         .configure(Config {
             port,
@@ -124,6 +124,7 @@ async fn launch() -> _ {
             show_user,
             show_user_feed,
             show_user_channels,
+            add_user,
         ],
         8083,
     )

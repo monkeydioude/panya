@@ -27,7 +27,7 @@ dev: setup start
 
 .PHONY: start
 start:
-	@docker compose up -d
+	@docker compose up -d --remove-orphans
 	$(MAKE) watch
 
 .PHONY: watch

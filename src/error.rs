@@ -82,11 +82,16 @@ impl HTTPError {
     }
 
     fn get_value(&self) -> Error {
-        match self {
-            HTTPError::BadRequest(v) => v.clone(),
-            HTTPError::Unauthorized(v) => v.clone(),
-            HTTPError::InternalServerError(v) => v.clone(),
-        }
+        format!(
+            "{{\"message\":\"{}\",\"code\":{}}}",
+            match self {
+                HTTPError::BadRequest(v) => v.clone(),
+                HTTPError::Unauthorized(v) => v.clone(),
+                HTTPError::InternalServerError(v) => v.clone(),
+            },
+            self.get_http_status().code,
+        )
+        .into()
     }
 }
 
