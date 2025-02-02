@@ -836,7 +836,6 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 [[package]]
 name = "goauth_rpc_client"
 version = "0.1.0"
-source = "git+ssh://git@github.com/monkeydioude/GOAuTh.git#ee1820b56bc9518b525f87aa95f1112060840aff"
 dependencies = [
  "prost",
  "tokio",

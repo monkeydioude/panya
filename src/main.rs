@@ -18,7 +18,7 @@ use handlers::{
     channel::{add_url, delete_channel, get_channel, get_channel_list, update_channel},
     healthcheck::healthcheck,
     panya::get_url,
-    user::{add_user, show_user, show_user_channels, show_user_feed},
+    user::{add_user, login_user, show_user, show_user_channels, show_user_feed},
 };
 use rocket::{
     fairing::{AdHoc, Fairing, Info, Kind},
@@ -125,6 +125,7 @@ async fn launch() -> _ {
             show_user_feed,
             show_user_channels,
             add_user,
+            login_user,
         ],
         8083,
     )

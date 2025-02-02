@@ -33,10 +33,12 @@ pub async fn user_signup(
     identity_server_addr: &str,
     user_payload: &UserPayload,
 ) -> Result<Response, Box<dyn stdError>> {
+    println!("{:?}", &user_payload);
     let addr = Box::leak(identity_server_addr.to_string().clone().into_boxed_str());
     let request = tonic::Request::new(UserRequest {
         login: user_payload.login.clone(),
         password: user_payload.password.clone(),
+        realm: user_payload.realm.clone(),
     });
     let channel = Channel::from_static(addr).connect().await?;
     Ok(AuthClient::new(channel).signup(request).await?.into_inner())
@@ -50,6 +52,7 @@ pub async fn user_login(
     let request = tonic::Request::new(UserRequest {
         login: user_payload.login.clone(),
         password: user_payload.password.clone(),
+        realm: user_payload.realm.clone(),
     });
     let channel = Channel::from_static(addr).connect().await?;
     let resp = AuthClient::new(channel).login(request).await?;

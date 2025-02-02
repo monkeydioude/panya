@@ -22,14 +22,15 @@ use chrono::{Duration, Utc};
 use mongodb::bson::doc;
 
 use super::public_entities::public_channel::PublicChannel;
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct UserPayload {
     pub login: String,
     pub password: String,
+    pub realm: String,
 }
 
-// /panya/channel
-#[post("/user", format = "json", data = "<add_user>")]
+// /panya
+#[post("/user/signup", format = "json", data = "<add_user>")]
 pub async fn add_user(
     cookies: &CookieJar<'_>,
     add_user: Json<UserPayload>,
@@ -56,20 +57,58 @@ pub async fn add_user(
         )));
     }
 
-    let login_resp = match user_login(&settings.identity_server_addr, &add_user).await {
+    // let login_resp = match user_login(&settings.identity_server_addr, &add_user).await {
+    //     Ok(r) => r,
+    //     Err(err) => return Err(HTTPError::InternalServerError(err.into())),
+    // };
+
+    // cookies.add(
+    //     Cookie::build(("Authorization", extract_auth(&login_resp.1)))
+    //         .path("/") // Cookie is valid across the entire application
+    //         .http_only(true) // Prevent access to the cookie via JavaScript
+    //         .secure(true) // Send cookie only over HTTPS
+    //         .max_age(rocket::time::Duration::hours(1)), // Set the cookie expiration
+    // );
+
+    return Ok(Json(HTTPResponse::created()));
+}
+
+#[post("/user/login", format = "json", data = "<login_user>")]
+pub async fn login_user(
+    cookies: &CookieJar<'_>,
+    login_user: Json<UserPayload>,
+    settings: &rocket::State<Settings>,
+    uuid: XQueryID,
+) -> Result<Json<HTTPResponse>, HTTPError> {
+    println!(
+        "[INFO] ({}) User signup attempt with login {}",
+        uuid, login_user.login
+    );
+    let (resp, headers) = match user_login(&settings.identity_server_addr, &login_user).await {
         Ok(r) => r,
         Err(err) => return Err(HTTPError::InternalServerError(err.into())),
     };
 
+    if resp.code == 404 {
+        return Err(HTTPError::BadRequest(Error(
+            "login does not exist".to_string(),
+        )));
+    }
+    if resp.code != 200 {
+        return Err(HTTPError::InternalServerError(Error(
+            "error during user login".to_string(),
+        )));
+    }
+
     cookies.add(
-        Cookie::build(("Authorization", extract_auth(&login_resp.1)))
+        Cookie::build(("Authorization", extract_auth(&headers)))
             .path("/") // Cookie is valid across the entire application
             .http_only(true) // Prevent access to the cookie via JavaScript
             .secure(true) // Send cookie only over HTTPS
             .max_age(rocket::time::Duration::hours(1)), // Set the cookie expiration
     );
 
-    return Ok(Json(HTTPResponse::created()));
+    return Ok(Json(HTTPResponse::ok()));
 }
 
 // GET /panya/user

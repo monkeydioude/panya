@@ -9,8 +9,8 @@ path = "src/main.rs"
 
 [dependencies]
 tonic = { version = "0.12", features = ["tls"] }
-goauth_rpc_client = { git = "ssh://git@github.com/monkeydioude/GOAuTh.git" }
-# goauth_rpc_client = { path = "/Users/mkd/work/calq/GOAuTh/proto/rust" }
+# goauth_rpc_client = { git = "ssh://git@github.com/monkeydioude/GOAuTh.git" }
+goauth_rpc_client = { path = "/Users/mkd/work/calq/GOAuTh/proto/rust" }
 # heyo_rpc_client = { git = "ssh://git@github.com/monkeydioude/heyo.git" }
 heyo_rpc_client = { path = "/Users/mkd/work/calq/heyo/proto/rust" }
 mongodb = "2.7.0"
