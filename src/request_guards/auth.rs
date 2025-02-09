@@ -1,4 +1,4 @@
-use crate::config::Settings;
+use crate::config::{self, Settings};
 use crate::services::grpc::jwt_status;
 use crate::services::token::ApiTokenError;
 use crate::utils::decode_base64_url;
@@ -19,6 +19,7 @@ pub struct Claims {
     pub uid: i32,
     pub expire: i128,
     pub refresh: i128,
+    pub realm: String,
 }
 
 impl From<Claims> for Auth {
@@ -69,6 +70,16 @@ impl<'r> FromRequest<'r> for Auth {
             Some(_claims) => _claims,
             None => return Outcome::Error((Status::Unauthorized, ApiTokenError::Invalid)),
         };
+
+        if claims.realm != config::COOKIE_REALM {
+            eprintln!(
+                "({}) invalid realm, expecte={}, got={}",
+                uuid,
+                config::COOKIE_REALM,
+                claims.realm
+            );
+            return Outcome::Error((Status::Unauthorized, ApiTokenError::Invalid));
+        }
 
         rocket::outcome::Outcome::Success(claims.into())
     }

@@ -4,6 +4,7 @@ use rocket::http::{Cookie, CookieJar};
 use rocket::serde::json::Json;
 use serde::{Deserialize, Serialize};
 
+use crate::config;
 use crate::db::channel::Channels;
 use crate::entities::channel::Channel;
 use crate::error::Error;
@@ -26,14 +27,15 @@ use super::public_entities::public_channel::PublicChannel;
 pub struct UserPayload {
     pub login: String,
     pub password: String,
+    #[serde(skip_deserializing)]
     pub realm: String,
 }
 
 // /panya
 #[post("/user/signup", format = "json", data = "<add_user>")]
 pub async fn add_user(
-    cookies: &CookieJar<'_>,
-    add_user: Json<UserPayload>,
+    // cookies: &CookieJar<'_>,
+    mut add_user: Json<UserPayload>,
     settings: &rocket::State<Settings>,
     uuid: XQueryID,
 ) -> Result<Json<HTTPResponse>, HTTPError> {
@@ -41,6 +43,7 @@ pub async fn add_user(
         "[INFO] ({}) User signup attempt with login {}",
         uuid, add_user.login
     );
+    add_user.realm = config::COOKIE_REALM.to_string();
     let resp = match user_signup(&settings.identity_server_addr, &add_user).await {
         Ok(r) => r,
         Err(err) => return Err(HTTPError::InternalServerError(err.into())),
@@ -76,7 +79,7 @@ pub async fn add_user(
 #[post("/user/login", format = "json", data = "<login_user>")]
 pub async fn login_user(
     cookies: &CookieJar<'_>,
-    login_user: Json<UserPayload>,
+    mut login_user: Json<UserPayload>,
     settings: &rocket::State<Settings>,
     uuid: XQueryID,
 ) -> Result<Json<HTTPResponse>, HTTPError> {
@@ -84,6 +87,7 @@ pub async fn login_user(
         "[INFO] ({}) User signup attempt with login {}",
         uuid, login_user.login
     );
+    login_user.realm = config::COOKIE_REALM.to_string();
     let (resp, headers) = match user_login(&settings.identity_server_addr, &login_user).await {
         Ok(r) => r,
         Err(err) => return Err(HTTPError::InternalServerError(err.into())),

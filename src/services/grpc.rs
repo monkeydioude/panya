@@ -1,7 +1,6 @@
 use goauth_rpc_client::v1::{
     auth_client::AuthClient, jwt_client::JwtClient, Empty, Response, UserRequest,
 };
-use heyo_rpc_client::rpc::Message;
 use std::error::Error as stdError;
 use tonic::{metadata::MetadataValue, transport::Channel, Request};
 

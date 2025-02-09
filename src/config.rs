@@ -1,6 +1,8 @@
 use config::{Config, ConfigError, Environment, File};
 use serde::Deserialize;
 
+pub const COOKIE_REALM: &str = "cookie-users";
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
     pub debug: bool,

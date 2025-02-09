@@ -108,11 +108,12 @@ mod tests {
 
     #[test]
     fn test_i_can_decode_base64_url() {
-        let encoded = "eyJleHBpcmUiOjE3MzA0ODYwNTEsInJlZnJlc2giOjE3MzEwODcyNTEsInVpZCI6N30";
+        let encoded = "eyJ1aWQiOjcsImV4cGlyZSI6MTczMDQ4NjA1MSwicmVmcmVzaCI6MTczMTA4NzI1MSwicmVhbG0iOiJ0ZXN0In0";
         let c = Claims {
             uid: 7,
             expire: 1730486051,
             refresh: 1731087251,
+            realm: "test".to_string(),
         };
         assert_eq!(c, decode_base64_url(encoded).unwrap());
     }
